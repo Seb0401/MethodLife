@@ -1,3 +1,9 @@
+# Design docs (kept local, not published)
+CLAUDE.md
+docs/
+*.md
+!README.md
+
 # Dependencies
 node_modules/
 .pnpm-store/
