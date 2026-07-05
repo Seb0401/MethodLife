@@ -6,18 +6,7 @@ App web de gestión de proyectos y de vida (escuela, trabajo, ocio, salud) que a
 
 ## Estado del proyecto
 
-🚧 **En fase de diseño.** El código aún no está inicializado; este repositorio contiene por ahora la documentación de diseño que guía el desarrollo (ver [Roadmap](docs/ROADMAP.md), Fase 0).
-
-## Documentación
-
-| Documento | Contenido |
-|---|---|
-| [docs/PRD.md](docs/PRD.md) | Qué construir: visión, módulos y requisitos funcionales |
-| [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Cómo está estructurado: modelo de datos, capas, patrones |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | En qué orden: fases con criterios de aceptación |
-| [CLAUDE.md](CLAUDE.md) | Guía operativa para desarrollo asistido con Claude Code |
-
-Ante cualquier conflicto entre documentos, el orden de autoridad es: **ROADMAP > PRD > ARQUITECTURA > CLAUDE.md**.
+🚧 **En fase de diseño.**
 
 ## Stack
 
