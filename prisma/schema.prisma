@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum WorkspaceType {
+  personal
+  team
+
+  @@map("workspace_type")
+}
+
+enum WorkspaceRole {
+  owner
+  admin
+  member
+
+  @@map("workspace_role")
+}
+
+model Workspace {
+  id        String        @id @default(uuid()) @db.Uuid
+  name      String
+  type      WorkspaceType
+  // References auth.users(id); no FK because the auth schema is managed by Supabase.
+  ownerId   String        @map("owner_id") @db.Uuid
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  members WorkspaceMember[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId String        @map("workspace_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  role        WorkspaceRole @default(member)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model Profile {
+  // 1:1 with auth.users(id); created on signup.
+  userId      String   @id @map("user_id") @db.Uuid
+  displayName String   @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("profiles")
+}

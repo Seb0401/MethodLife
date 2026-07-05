@@ -9,24 +9,44 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "prisma",
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild"
+    ]
   },
   "dependencies": {
+    "@prisma/client": "^6",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.110.0",
+    "next": "15.5.20",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.5.20"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.20",
-    "@eslint/eslintrc": "^3",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3",
+    "prisma": "^6",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.0",
+    "typescript": "^5",
     "vitest": "^3"
   }
 }
