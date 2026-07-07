@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { createProject, deleteProject } from "@/actions/projects";
@@ -98,14 +99,22 @@ export default async function ProjectsPage({
               className="flex flex-col gap-1 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
             >
               <div className="flex items-center gap-2">
-                <h2 className="font-semibold">{project.name}</h2>
+                <Link href={`/proyectos/${project.id}`} className="font-semibold hover:underline">
+                  {project.name}
+                </Link>
                 <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
                   {es.projects.methods[project.method]}
                 </span>
                 <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-xs text-neutral-500 dark:border-neutral-700">
                   {es.projects.statuses[project.status]}
                 </span>
-                <form action={deleteProject} className="ml-auto">
+                <Link
+                  href={`/proyectos/${project.id}`}
+                  className="ml-auto text-xs text-neutral-500 hover:underline"
+                >
+                  {es.projects.open}
+                </Link>
+                <form action={deleteProject}>
                   <input type="hidden" name="id" value={project.id} />
                   <button type="submit" className="text-xs text-neutral-400 hover:text-red-600">
                     {es.projects.delete}
