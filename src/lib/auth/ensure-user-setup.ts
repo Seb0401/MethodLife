@@ -29,6 +29,15 @@ export async function ensureUserSetup() {
           type: "personal",
           ownerId: user.id,
           members: { create: { userId: user.id, role: "owner" } },
+          // Seed the default life areas so the workspace is usable immediately (RF1.2).
+          areas: {
+            create: es.areas.defaults.map((a, i) => ({
+              name: a.name,
+              color: a.color,
+              icon: a.icon,
+              position: i,
+            })),
+          },
         },
       }),
     ]);
