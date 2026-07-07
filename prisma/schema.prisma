@@ -23,6 +23,47 @@ enum WorkspaceRole {
   @@map("workspace_role")
 }
 
+enum GoalStatus {
+  active
+  done
+  abandoned
+
+  @@map("goal_status")
+}
+
+enum ProjectMethod {
+  scrum
+  kanban
+  fdd
+  simple
+
+  @@map("project_method")
+}
+
+enum ProjectStatus {
+  active
+  paused
+  archived
+
+  @@map("project_status")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+
+  @@map("task_priority")
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+
+  @@map("task_status")
+}
+
 model Workspace {
   id        String        @id @default(uuid()) @db.Uuid
   name      String
@@ -32,7 +73,11 @@ model Workspace {
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  members WorkspaceMember[]
+  members  WorkspaceMember[]
+  areas    LifeArea[]
+  goals    Goal[]
+  projects Project[]
+  tasks    Task[]
 
   @@map("workspaces")
 }
@@ -59,4 +104,147 @@ model Profile {
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("profiles")
+}
+
+model LifeArea {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  name        String
+  color       String?
+  icon        String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goals     Goal[]
+  projects  Project[]
+
+  @@index([workspaceId])
+  @@map("life_areas")
+}
+
+model Goal {
+  id          String     @id @default(uuid()) @db.Uuid
+  workspaceId String     @map("workspace_id") @db.Uuid
+  areaId      String     @map("area_id") @db.Uuid
+  title       String
+  description String?
+  targetDate  DateTime?  @map("target_date") @db.Date
+  status      GoalStatus @default(active)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  area      LifeArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  projects  Project[]
+  tasks     Task[]
+
+  @@index([workspaceId])
+  @@index([areaId])
+  @@map("goals")
+}
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  areaId      String        @map("area_id") @db.Uuid
+  goalId      String?       @map("goal_id") @db.Uuid
+  name        String
+  description String?
+  method      ProjectMethod
+  status      ProjectStatus @default(active)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  area      LifeArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  goal      Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  boards    Board[]
+  tasks     Task[]
+
+  @@index([workspaceId])
+  @@index([areaId])
+  @@index([goalId])
+  @@map("projects")
+}
+
+model Board {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columns BoardColumn[]
+
+  @@index([projectId])
+  @@map("boards")
+}
+
+model BoardColumn {
+  id        String   @id @default(uuid()) @db.Uuid
+  boardId   String   @map("board_id") @db.Uuid
+  name      String
+  position  Int      @default(0)
+  wipLimit  Int?     @map("wip_limit")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([boardId])
+  @@map("board_columns")
+}
+
+model Task {
+  id               String       @id @default(uuid()) @db.Uuid
+  workspaceId      String       @map("workspace_id") @db.Uuid
+  projectId        String?      @map("project_id") @db.Uuid
+  goalId           String?      @map("goal_id") @db.Uuid
+  columnId         String?      @map("column_id") @db.Uuid
+  title            String
+  description      String?
+  priority         TaskPriority @default(medium)
+  estimate         Int?
+  status           TaskStatus   @default(todo)
+  position         Int          @default(0)
+  assigneeId       String?      @map("assignee_id") @db.Uuid
+  definitionOfDone Json?        @map("definition_of_done") @db.JsonB
+  inbox            Boolean      @default(false)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  goal        Goal?            @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  column      BoardColumn?     @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  transitions TaskTransition[]
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([goalId])
+  @@index([columnId])
+  @@map("tasks")
+}
+
+// Event table: INSERT-only, immutable. Metrics (cycle/lead time, throughput) derive from here.
+// from/to column ids are stored without FK so the audit trail survives column deletion.
+model TaskTransition {
+  id           String      @id @default(uuid()) @db.Uuid
+  taskId       String      @map("task_id") @db.Uuid
+  fromColumnId String?     @map("from_column_id") @db.Uuid
+  toColumnId   String?     @map("to_column_id") @db.Uuid
+  fromStatus   TaskStatus? @map("from_status")
+  toStatus     TaskStatus  @map("to_status")
+  actorId      String      @map("actor_id") @db.Uuid
+  at           DateTime    @default(now()) @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([at])
+  @@map("task_transitions")
 }
