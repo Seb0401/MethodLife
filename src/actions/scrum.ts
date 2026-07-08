@@ -7,9 +7,18 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { backWithError } from "@/lib/forms";
 import { isValidEstimate, moveInOrder, nextBacklogPosition } from "@/domain/scrum/backlog";
+import { canAssignToSprint, canTransitionSprint, isValidSprintRange } from "@/domain/scrum/sprint";
 
 const titleSchema = z.string().trim().min(1).max(200);
+const nameSchema = z.string().trim().min(1).max(120);
 const prioritySchema = z.enum(["low", "medium", "high"]);
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+// Parses a "YYYY-MM-DD" form value into a UTC-midnight Date (matches @db.Date).
+function parseDate(raw: FormDataEntryValue | null): Date | null {
+  const parsed = dateSchema.safeParse(typeof raw === "string" ? raw : "");
+  return parsed.success ? new Date(`${parsed.data}T00:00:00Z`) : null;
+}
 
 // Loads a Scrum project the current user may access, or bounces with an error.
 async function requireScrumProject(projectId: string, back: string) {
@@ -112,6 +121,107 @@ export async function moveBacklogItem(formData: FormData) {
       prisma.task.update({ where: { id: taskId }, data: { position: index } }),
     ),
   );
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Create a sprint for a Scrum project (RF2.2): starts in `planned` with a date
+// range validated in the domain.
+export async function createSprint(formData: FormData) {
+  const projectId = z.uuid().parse(formData.get("projectId"));
+  const back = `/proyectos/${projectId}`;
+  const name = nameSchema.safeParse(formData.get("name"));
+  if (!name.success) backWithError(back, "SPRINT_NAME_REQUIRED");
+
+  await requireScrumProject(projectId, back);
+
+  const startsAt = parseDate(formData.get("startsAt"));
+  const endsAt = parseDate(formData.get("endsAt"));
+  if (!startsAt || !endsAt || !isValidSprintRange(startsAt, endsAt)) {
+    backWithError(back, "SPRINT_INVALID_RANGE");
+  }
+
+  await prisma.sprint.create({
+    data: { projectId, name: name.data, startsAt, endsAt },
+  });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Plan a backlog task into a sprint (RF2.3). Rejected if the sprint is closed
+// (RF2.2). Planning only sets scope; the sprint board (2.4) places the card.
+export async function assignToSprint(formData: FormData) {
+  const ctx = await getWorkspaceContext();
+  const projectId = z.uuid().parse(formData.get("projectId"));
+  const back = `/proyectos/${projectId}`;
+  const taskId = z.uuid().parse(formData.get("taskId"));
+  const sprintId = z.uuid().parse(formData.get("sprintId"));
+
+  const [task, sprint] = await Promise.all([
+    prisma.task.findUnique({ where: { id: taskId }, select: { workspaceId: true } }),
+    prisma.sprint.findUnique({
+      where: { id: sprintId },
+      select: { projectId: true, status: true },
+    }),
+  ]);
+  if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
+  if (!sprint || sprint.projectId !== projectId) backWithError(back, "NOT_FOUND");
+  if (!canAssignToSprint(sprint.status)) backWithError(back, "SPRINT_CLOSED");
+
+  const inSprint = await prisma.task.findMany({ where: { sprintId }, select: { position: true } });
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { sprintId, position: nextBacklogPosition(inSprint.map((t) => t.position)) },
+  });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Return a task from its sprint to the backlog (allowed while the sprint is open).
+export async function removeFromSprint(formData: FormData) {
+  const ctx = await getWorkspaceContext();
+  const projectId = z.uuid().parse(formData.get("projectId"));
+  const back = `/proyectos/${projectId}`;
+  const taskId = z.uuid().parse(formData.get("taskId"));
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { workspaceId: true, sprint: { select: { status: true } } },
+  });
+  if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
+  if (task.sprint && !canAssignToSprint(task.sprint.status)) backWithError(back, "SPRINT_CLOSED");
+
+  const backlog = await prisma.task.findMany({
+    where: { projectId, sprintId: null },
+    select: { position: true },
+  });
+  await prisma.task.update({
+    where: { id: taskId },
+    data: {
+      sprintId: null,
+      columnId: null,
+      position: nextBacklogPosition(backlog.map((t) => t.position)),
+    },
+  });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Start a planned sprint (planned → active, RF2.2 lifecycle).
+export async function startSprint(formData: FormData) {
+  const projectId = z.uuid().parse(formData.get("projectId"));
+  const back = `/proyectos/${projectId}`;
+  const sprintId = z.uuid().parse(formData.get("sprintId"));
+
+  await requireScrumProject(projectId, back);
+  const sprint = await prisma.sprint.findUnique({
+    where: { id: sprintId },
+    select: { projectId: true, status: true },
+  });
+  if (!sprint || sprint.projectId !== projectId) backWithError(back, "NOT_FOUND");
+  if (!canTransitionSprint(sprint.status, "active")) backWithError(back, "SPRINT_INVALID_STATUS");
+
+  await prisma.sprint.update({ where: { id: sprintId }, data: { status: "active" } });
   revalidatePath(back);
   redirect(back);
 }

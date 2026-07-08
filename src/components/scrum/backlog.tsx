@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { addBacklogItem, setBacklogEstimate, moveBacklogItem } from "@/actions/scrum";
+import {
+  addBacklogItem,
+  setBacklogEstimate,
+  moveBacklogItem,
+  assignToSprint,
+} from "@/actions/scrum";
 import { deleteTask } from "@/actions/tasks";
 import { POINT_SCALE, sumPoints } from "@/domain/scrum/backlog";
 import { es } from "@/lib/i18n/es";
@@ -16,11 +21,19 @@ const inputClass =
 // Backlog view for a Scrum project (RF2.1): priority-ordered, point-estimated
 // items with no sprint assigned yet.
 export async function ScrumBacklog({ projectId }: { projectId: string }) {
-  const items = await prisma.task.findMany({
-    where: { projectId, sprintId: null },
-    orderBy: { position: "asc" },
-    select: { id: true, title: true, priority: true, estimate: true },
-  });
+  const [items, openSprints] = await Promise.all([
+    prisma.task.findMany({
+      where: { projectId, sprintId: null },
+      orderBy: { position: "asc" },
+      select: { id: true, title: true, priority: true, estimate: true },
+    }),
+    // Sprints still open for planning (not closed).
+    prisma.sprint.findMany({
+      where: { projectId, status: { not: "closed" } },
+      orderBy: { startsAt: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
   const back = `/proyectos/${projectId}`;
   const total = sumPoints(items);
 
@@ -110,6 +123,31 @@ export async function ScrumBacklog({ projectId }: { projectId: string }) {
                 <span className={`mr-1 ${priorityStyles[item.priority]}`}>●</span>
                 {item.title}
               </span>
+
+              {openSprints.length > 0 && (
+                <form action={assignToSprint} className="flex items-center gap-1">
+                  <input type="hidden" name="projectId" value={projectId} />
+                  <input type="hidden" name="taskId" value={item.id} />
+                  <select
+                    name="sprintId"
+                    defaultValue={openSprints[0].id}
+                    className="max-w-28 truncate rounded-md border border-neutral-200 px-1 py-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+                    aria-label={es.scrum.assign}
+                  >
+                    {openSprints.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="text-xs text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
+                  >
+                    {es.scrum.assign}
+                  </button>
+                </form>
+              )}
 
               <form action={setBacklogEstimate} className="flex items-center gap-1">
                 <input type="hidden" name="projectId" value={projectId} />
