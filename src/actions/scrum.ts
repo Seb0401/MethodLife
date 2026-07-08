@@ -9,7 +9,10 @@ import { backWithError } from "@/lib/forms";
 import { Prisma } from "@prisma/client";
 import { isValidEstimate, moveInOrder, nextBacklogPosition } from "@/domain/scrum/backlog";
 import { canAssignToSprint, canTransitionSprint, isValidSprintRange } from "@/domain/scrum/sprint";
+import { computeVelocity, splitByCompletion } from "@/domain/scrum/close";
+import { sprintSummaryToMarkdown } from "@/domain/scrum/summary";
 import { statusForColumn } from "@/domain/kanban/status";
+import { es } from "@/lib/i18n/es";
 
 const titleSchema = z.string().trim().min(1).max(200);
 const nameSchema = z.string().trim().min(1).max(120);
@@ -292,6 +295,70 @@ export async function startSprint(formData: FormData) {
         board.count,
         ctx.user.id,
       );
+    }
+  });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Close an active sprint (RF2.5): compute velocity from completed points, return
+// incomplete tasks to the backlog, and store an auto-generated Markdown summary.
+export async function closeSprint(formData: FormData) {
+  const ctx = await getWorkspaceContext();
+  const projectId = z.uuid().parse(formData.get("projectId"));
+  const back = `/proyectos/${projectId}`;
+  const sprintId = z.uuid().parse(formData.get("sprintId"));
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspaceId: true, method: true },
+  });
+  if (!project || project.workspaceId !== ctx.workspace.id || project.method !== "scrum") {
+    backWithError(back, "NOT_FOUND");
+  }
+  const sprint = await prisma.sprint.findUnique({
+    where: { id: sprintId },
+    select: { projectId: true, status: true, name: true, startsAt: true, endsAt: true },
+  });
+  if (!sprint || sprint.projectId !== projectId) backWithError(back, "NOT_FOUND");
+  if (!canTransitionSprint(sprint.status, "closed")) backWithError(back, "SPRINT_INVALID_STATUS");
+
+  const tasks = await prisma.task.findMany({
+    where: { sprintId },
+    orderBy: { position: "asc" },
+    select: { id: true, title: true, status: true, estimate: true },
+  });
+  const velocity = computeVelocity(tasks);
+  const { completed, incomplete } = splitByCompletion(tasks);
+
+  const summaryMd = sprintSummaryToMarkdown({
+    sprintName: sprint.name,
+    startsAt: sprint.startsAt,
+    endsAt: sprint.endsAt,
+    velocity,
+    completed: completed.map((t) => ({ title: t.title, estimate: t.estimate })),
+    incomplete: incomplete.map((t) => ({ title: t.title, estimate: t.estimate })),
+    labels: es.scrum.summary,
+  });
+
+  // Incomplete tasks go back to the (current) end of the backlog.
+  const backlog = await prisma.task.findMany({
+    where: { projectId, sprintId: null },
+    select: { position: true },
+  });
+  let position = nextBacklogPosition(backlog.map((t) => t.position));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.sprint.update({
+      where: { id: sprintId },
+      data: { status: "closed", velocity, summaryMd },
+    });
+    for (const task of incomplete) {
+      await tx.task.update({
+        where: { id: task.id },
+        data: { sprintId: null, columnId: null, position },
+      });
+      position++;
     }
   });
   revalidatePath(back);

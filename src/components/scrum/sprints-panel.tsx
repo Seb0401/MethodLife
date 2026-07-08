@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { createSprint, startSprint, removeFromSprint } from "@/actions/scrum";
+import { createSprint, startSprint, closeSprint, removeFromSprint } from "@/actions/scrum";
 import { sumPoints } from "@/domain/scrum/backlog";
 import { es } from "@/lib/i18n/es";
 
@@ -84,19 +84,56 @@ export async function SprintsPanel({ projectId }: { projectId: string }) {
                   {sumPoints(sprint.tasks)} {es.scrum.points} · {sprint.tasks.length}{" "}
                   {es.scrum.items}
                 </span>
-                {sprint.status === "planned" && (
-                  <form action={startSprint} className="ml-auto">
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <input type="hidden" name="sprintId" value={sprint.id} />
-                    <button
-                      type="submit"
-                      className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
-                    >
-                      {es.scrum.start}
-                    </button>
-                  </form>
-                )}
+                <div className="ml-auto flex items-center gap-2">
+                  {sprint.status === "closed" && (
+                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                      {es.scrum.velocity}: {sprint.velocity ?? 0}
+                    </span>
+                  )}
+                  {sprint.status === "planned" && (
+                    <form action={startSprint}>
+                      <input type="hidden" name="projectId" value={projectId} />
+                      <input type="hidden" name="sprintId" value={sprint.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+                      >
+                        {es.scrum.start}
+                      </button>
+                    </form>
+                  )}
+                  {sprint.status === "active" && (
+                    <form action={closeSprint}>
+                      <input type="hidden" name="projectId" value={projectId} />
+                      <input type="hidden" name="sprintId" value={sprint.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+                      >
+                        {es.scrum.close}
+                      </button>
+                    </form>
+                  )}
+                </div>
               </div>
+
+              {sprint.status === "closed" && sprint.summaryMd && (
+                <details className="text-sm">
+                  <summary className="flex cursor-pointer items-center gap-3 text-neutral-500">
+                    {es.scrum.viewSummary}
+                    <a
+                      href={`/proyectos/${projectId}/sprints/${sprint.id}/resumen`}
+                      download
+                      className="text-xs text-neutral-500 underline hover:text-neutral-800 dark:hover:text-neutral-200"
+                    >
+                      {es.scrum.downloadSummary}
+                    </a>
+                  </summary>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-xs dark:bg-neutral-900">
+                    {sprint.summaryMd}
+                  </pre>
+                </details>
+              )}
 
               {sprint.tasks.length > 0 && (
                 <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
