@@ -23,6 +23,14 @@ enum WorkspaceRole {
   @@map("workspace_role")
 }
 
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+
+  @@map("invitation_status")
+}
+
 enum GoalStatus {
   active
   done
@@ -89,11 +97,12 @@ model Workspace {
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  members  WorkspaceMember[]
-  areas    LifeArea[]
-  goals    Goal[]
-  projects Project[]
-  tasks    Task[]
+  members     WorkspaceMember[]
+  areas       LifeArea[]
+  goals       Goal[]
+  projects    Project[]
+  tasks       Task[]
+  invitations WorkspaceInvitation[]
 
   @@map("workspaces")
 }
@@ -109,6 +118,27 @@ model WorkspaceMember {
   @@id([workspaceId, userId])
   @@index([userId])
   @@map("workspace_members")
+}
+
+model WorkspaceInvitation {
+  id            String           @id @default(uuid()) @db.Uuid
+  workspaceId   String           @map("workspace_id") @db.Uuid
+  email         String
+  role          WorkspaceRole    @default(member)
+  // Random unguessable token; the acceptance link carries it.
+  token         String           @unique
+  status        InvitationStatus @default(pending)
+  // Both reference auth.users(id); no FK (auth schema is managed by Supabase).
+  invitedById   String           @map("invited_by_id") @db.Uuid
+  acceptedById  String?          @map("accepted_by_id") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([email])
+  @@map("workspace_invitations")
 }
 
 model Profile {
