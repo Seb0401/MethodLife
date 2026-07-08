@@ -211,6 +211,7 @@ model Task {
   estimate         Int?
   status           TaskStatus   @default(todo)
   position         Int          @default(0)
+  dueDate          DateTime?    @map("due_date") @db.Date
   assigneeId       String?      @map("assignee_id") @db.Uuid
   definitionOfDone Json?        @map("definition_of_done") @db.JsonB
   inbox            Boolean      @default(false)
@@ -224,6 +225,7 @@ model Task {
   transitions TaskTransition[]
 
   @@index([workspaceId])
+  @@index([workspaceId, dueDate])
   @@index([projectId])
   @@index([goalId])
   @@index([columnId])

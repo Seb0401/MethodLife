@@ -10,6 +10,7 @@ import { es } from "@/lib/i18n/es";
 const NAV_ITEMS = [
   { href: "/hoy", label: es.nav.hoy },
   { href: "/inbox", label: es.nav.inbox },
+  { href: "/buscar", label: es.nav.buscar },
   { href: "/areas", label: es.nav.areas },
   { href: "/proyectos", label: es.nav.proyectos },
   { href: "/habitos", label: es.nav.habitos },

@@ -4,7 +4,7 @@ import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { KanbanBoard } from "@/components/kanban/board";
 import { MetricsPanel } from "@/components/kanban/metrics-panel";
-import { addSimpleTask, toggleTaskDone, deleteTask } from "@/actions/tasks";
+import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/actions/tasks";
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
 import { actionErrorMessage } from "@/lib/forms";
 import { computeFlowMetrics, type TransitionInput } from "@/domain/kanban/metrics";
@@ -69,14 +69,24 @@ export default async function ProjectPage({
         board ? (
           <KanbanBoard
             key={board.columns
-              .map((c) => `${c.id}:${c.name}:${c.wipLimit}:${c.tasks.map((t) => t.id).join(",")}`)
+              .map(
+                (c) =>
+                  `${c.id}:${c.name}:${c.wipLimit}:${c.tasks
+                    .map((t) => `${t.id}:${t.priority}:${t.dueDate?.toISOString() ?? ""}`)
+                    .join(",")}`,
+              )
               .join("|")}
             projectId={project.id}
             columns={board.columns.map((c) => ({
               id: c.id,
               name: c.name,
               wipLimit: c.wipLimit,
-              tasks: c.tasks.map((t) => ({ id: t.id, title: t.title, priority: t.priority })),
+              tasks: c.tasks.map((t) => ({
+                id: t.id,
+                title: t.title,
+                priority: t.priority,
+                dueDate: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null,
+              })),
             }))}
           />
         ) : (
@@ -109,6 +119,10 @@ async function loadFlowMetrics(projectId: string) {
     [...byTask.entries()].map(([taskId, transitions]) => ({ taskId, transitions })),
     { days: 14, now: Date.now() },
   );
+}
+
+function toDateInput(date: Date | null): string {
+  return date ? date.toISOString().slice(0, 10) : "";
 }
 
 async function SimpleTaskList({ projectId }: { projectId: string }) {
@@ -162,7 +176,24 @@ async function SimpleTaskList({ projectId }: { projectId: string }) {
               <span className={task.status === "done" ? "text-neutral-400 line-through" : ""}>
                 {task.title}
               </span>
-              <form action={deleteTask} className="ml-auto">
+              <form action={setTaskDueDate} className="ml-auto flex items-center gap-1">
+                <input type="hidden" name="id" value={task.id} />
+                <input type="hidden" name="redirectTo" value={back} />
+                <input
+                  type="date"
+                  name="dueDate"
+                  defaultValue={toDateInput(task.dueDate)}
+                  className="rounded-md border border-neutral-200 px-1 py-0.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900"
+                />
+                <button
+                  type="submit"
+                  className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                  aria-label={es.tasks.setDue}
+                >
+                  ✓
+                </button>
+              </form>
+              <form action={deleteTask}>
                 <input type="hidden" name="id" value={task.id} />
                 <input type="hidden" name="redirectTo" value={back} />
                 <button type="submit" className="text-xs text-neutral-300 hover:text-red-600">

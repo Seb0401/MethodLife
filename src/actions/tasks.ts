@@ -203,6 +203,30 @@ export async function addSimpleTask(formData: FormData) {
   redirect(back);
 }
 
+// Set or clear a task's due date (RF1.7). An empty value clears it (removes the
+// task from the "Today" view). Dates are calendar-only ("YYYY-MM-DD").
+export async function setTaskDueDate(formData: FormData) {
+  const ctx = await getWorkspaceContext();
+  const id = z.uuid().parse(formData.get("id"));
+  const back = safePath(formData.get("redirectTo"), "/hoy");
+  const raw = formData.get("dueDate");
+  const parsed = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .safeParse(typeof raw === "string" ? raw : "");
+
+  const task = await prisma.task.findUnique({ where: { id }, select: { workspaceId: true } });
+  if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
+
+  await prisma.task.update({
+    where: { id },
+    // `${value}T00:00:00Z` pins the calendar day in UTC (matches @db.Date).
+    data: { dueDate: parsed.success ? new Date(`${parsed.data}T00:00:00Z`) : null },
+  });
+  revalidatePath(back);
+  redirect(back);
+}
+
 export async function toggleTaskDone(formData: FormData) {
   const ctx = await getWorkspaceContext();
   const id = z.uuid().parse(formData.get("id"));
