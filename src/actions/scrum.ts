@@ -6,8 +6,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { backWithError } from "@/lib/forms";
+import { Prisma } from "@prisma/client";
 import { isValidEstimate, moveInOrder, nextBacklogPosition } from "@/domain/scrum/backlog";
 import { canAssignToSprint, canTransitionSprint, isValidSprintRange } from "@/domain/scrum/sprint";
+import { statusForColumn } from "@/domain/kanban/status";
 
 const titleSchema = z.string().trim().min(1).max(200);
 const nameSchema = z.string().trim().min(1).max(120);
@@ -31,6 +33,46 @@ async function requireScrumProject(projectId: string, back: string) {
     backWithError(back, "NOT_FOUND");
   }
   return { project, workspaceId: ctx.workspace.id };
+}
+
+// First column (todo) of a Scrum project's board, or null if it has none.
+async function firstBoardColumn(projectId: string) {
+  const board = await prisma.board.findFirst({
+    where: { projectId },
+    select: { columns: { orderBy: { position: "asc" }, select: { id: true, position: true } } },
+  });
+  const columns = board?.columns ?? [];
+  return columns.length > 0 ? { column: columns[0], count: columns.length } : null;
+}
+
+// Places sprint tasks (not yet on the board) into the first column, recording an
+// entry transition each — the sprint board's starting state and burndown seed (RF2.6).
+async function placeOnBoard(
+  tx: Prisma.TransactionClient,
+  taskIds: string[],
+  column: { id: string; position: number },
+  columnCount: number,
+  actorId: string,
+) {
+  const status = statusForColumn(column.position, columnCount);
+  let position = await tx.task.count({ where: { columnId: column.id } });
+  for (const taskId of taskIds) {
+    await tx.task.update({
+      where: { id: taskId },
+      data: { columnId: column.id, status, position },
+    });
+    await tx.taskTransition.create({
+      data: {
+        taskId,
+        fromColumnId: null,
+        toColumnId: column.id,
+        fromStatus: null,
+        toStatus: status,
+        actorId,
+      },
+    });
+    position++;
+  }
 }
 
 // Add an item to a project's backlog (RF2.1): a task with no sprint yet,
@@ -168,10 +210,14 @@ export async function assignToSprint(formData: FormData) {
   if (!sprint || sprint.projectId !== projectId) backWithError(back, "NOT_FOUND");
   if (!canAssignToSprint(sprint.status)) backWithError(back, "SPRINT_CLOSED");
 
+  // If the sprint is already running, the task also lands on the board now.
+  const board = sprint.status === "active" ? await firstBoardColumn(projectId) : null;
   const inSprint = await prisma.task.findMany({ where: { sprintId }, select: { position: true } });
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { sprintId, position: nextBacklogPosition(inSprint.map((t) => t.position)) },
+  const position = nextBacklogPosition(inSprint.map((t) => t.position));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({ where: { id: taskId }, data: { sprintId, position } });
+    if (board) await placeOnBoard(tx, [taskId], board.column, board.count, ctx.user.id);
   });
   revalidatePath(back);
   redirect(back);
@@ -207,13 +253,22 @@ export async function removeFromSprint(formData: FormData) {
   redirect(back);
 }
 
-// Start a planned sprint (planned → active, RF2.2 lifecycle).
+// Start a planned sprint (planned → active, RF2.2 lifecycle). Its planned tasks
+// are dropped onto the board's first column so the sprint board (RF2.4) opens
+// with the committed scope.
 export async function startSprint(formData: FormData) {
+  const ctx = await getWorkspaceContext();
   const projectId = z.uuid().parse(formData.get("projectId"));
   const back = `/proyectos/${projectId}`;
   const sprintId = z.uuid().parse(formData.get("sprintId"));
 
-  await requireScrumProject(projectId, back);
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspaceId: true, method: true },
+  });
+  if (!project || project.workspaceId !== ctx.workspace.id || project.method !== "scrum") {
+    backWithError(back, "NOT_FOUND");
+  }
   const sprint = await prisma.sprint.findUnique({
     where: { id: sprintId },
     select: { projectId: true, status: true },
@@ -221,7 +276,24 @@ export async function startSprint(formData: FormData) {
   if (!sprint || sprint.projectId !== projectId) backWithError(back, "NOT_FOUND");
   if (!canTransitionSprint(sprint.status, "active")) backWithError(back, "SPRINT_INVALID_STATUS");
 
-  await prisma.sprint.update({ where: { id: sprintId }, data: { status: "active" } });
+  const board = await firstBoardColumn(projectId);
+  const unplaced = await prisma.task.findMany({
+    where: { sprintId, columnId: null },
+    select: { id: true },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.sprint.update({ where: { id: sprintId }, data: { status: "active" } });
+    if (board) {
+      await placeOnBoard(
+        tx,
+        unplaced.map((t) => t.id),
+        board.column,
+        board.count,
+        ctx.user.id,
+      );
+    }
+  });
   revalidatePath(back);
   redirect(back);
 }

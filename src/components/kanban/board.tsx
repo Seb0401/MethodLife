@@ -27,6 +27,10 @@ export type BoardColumn = { id: string; name: string; wipLimit: number | null; t
 type DueFilter = "" | "overdue" | "today" | "none";
 type PriorityFilter = "" | Priority;
 
+// "kanban" is the full board; "sprint" reuses it for the sprint board (RF2.4),
+// hiding column management and card creation — cards arrive via sprint planning.
+export type BoardVariant = "kanban" | "sprint";
+
 const priorityStyles: Record<Priority, string> = {
   low: "text-neutral-400",
   medium: "text-amber-500",
@@ -218,10 +222,12 @@ function Column({
   col,
   projectId,
   visibleTasks,
+  variant,
 }: {
   col: BoardColumn;
   projectId: string;
   visibleTasks: BoardTask[];
+  variant: BoardVariant;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
   const count = col.tasks.length;
@@ -241,9 +247,11 @@ function Column({
           {count}
           {col.wipLimit != null ? `/${col.wipLimit}` : ""}
         </span>
-        <div className="ml-auto">
-          <ColumnSettings projectId={projectId} col={col} />
-        </div>
+        {variant === "kanban" && (
+          <div className="ml-auto">
+            <ColumnSettings projectId={projectId} col={col} />
+          </div>
+        )}
       </header>
 
       <div
@@ -257,39 +265,49 @@ function Column({
         ))}
       </div>
 
-      <form action={createTaskInColumn} className="flex flex-col gap-1 px-1">
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="columnId" value={col.id} />
-        <input
-          name="title"
-          placeholder={es.tasks.newCard}
-          maxLength={200}
-          required
-          className="rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-        />
-        <div className="flex gap-1">
-          <select
-            name="priority"
-            defaultValue="medium"
-            className="flex-1 rounded-md border border-neutral-200 px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
-          >
-            <option value="low">{es.tasks.priorities.low}</option>
-            <option value="medium">{es.tasks.priorities.medium}</option>
-            <option value="high">{es.tasks.priorities.high}</option>
-          </select>
-          <button
-            type="submit"
-            className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
-          >
-            {es.tasks.add}
-          </button>
-        </div>
-      </form>
+      {variant === "kanban" && (
+        <form action={createTaskInColumn} className="flex flex-col gap-1 px-1">
+          <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="columnId" value={col.id} />
+          <input
+            name="title"
+            placeholder={es.tasks.newCard}
+            maxLength={200}
+            required
+            className="rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <div className="flex gap-1">
+            <select
+              name="priority"
+              defaultValue="medium"
+              className="flex-1 rounded-md border border-neutral-200 px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+            >
+              <option value="low">{es.tasks.priorities.low}</option>
+              <option value="medium">{es.tasks.priorities.medium}</option>
+              <option value="high">{es.tasks.priorities.high}</option>
+            </select>
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+            >
+              {es.tasks.add}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }
 
-export function KanbanBoard({ projectId, columns }: { projectId: string; columns: BoardColumn[] }) {
+export function KanbanBoard({
+  projectId,
+  columns,
+  variant = "kanban",
+}: {
+  projectId: string;
+  columns: BoardColumn[];
+  variant?: BoardVariant;
+}) {
   const [cols, setCols] = useState(columns);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -404,29 +422,32 @@ export function KanbanBoard({ projectId, columns }: { projectId: string; columns
               key={col.id}
               col={col}
               projectId={projectId}
+              variant={variant}
               visibleTasks={col.tasks.filter((t) => taskMatches(t, priorityFilter, dueFilter, now))}
             />
           ))}
 
-          <form
-            action={addColumn}
-            className="flex h-fit w-56 shrink-0 flex-col gap-1 rounded-lg border border-dashed border-neutral-300 p-2 dark:border-neutral-700"
-          >
-            <input type="hidden" name="projectId" value={projectId} />
-            <input
-              name="name"
-              placeholder={es.kanban.columnName}
-              required
-              maxLength={60}
-              className="rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+          {variant === "kanban" && (
+            <form
+              action={addColumn}
+              className="flex h-fit w-56 shrink-0 flex-col gap-1 rounded-lg border border-dashed border-neutral-300 p-2 dark:border-neutral-700"
             >
-              {es.kanban.addColumn}
-            </button>
-          </form>
+              <input type="hidden" name="projectId" value={projectId} />
+              <input
+                name="name"
+                placeholder={es.kanban.columnName}
+                required
+                maxLength={60}
+                className="rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+              />
+              <button
+                type="submit"
+                className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+              >
+                {es.kanban.addColumn}
+              </button>
+            </form>
+          )}
         </div>
 
         <DragOverlay>

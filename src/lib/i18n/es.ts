@@ -267,6 +267,9 @@ export const es = {
     start: "Iniciar sprint",
     assign: "Al sprint",
     remove: "Al backlog",
+    boardTitle: "Tablero del sprint",
+    noActiveSprint: "No hay ningún sprint activo. Inicia uno para ver su tablero.",
+    boardEmpty: "El sprint no tiene tarjetas en el tablero.",
     points: "pts",
     items: "elementos",
     statuses: {
