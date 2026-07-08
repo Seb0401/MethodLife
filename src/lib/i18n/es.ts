@@ -229,6 +229,22 @@ export const es = {
       empty: "Aún no hay tarjetas completadas para medir. Mueve tarjetas a la última columna.",
       na: "—",
       units: { d: "d", h: "h", m: "min" },
+      download: "Descargar reporte (.md)",
+    },
+    // Column/section labels for the exported Markdown metrics report (RNF6).
+    report: {
+      title: "Reporte de flujo",
+      project: "Proyecto",
+      method: "Método",
+      generated: "Generado",
+      summary: "Resumen",
+      completed: "Completadas",
+      avgLead: "Lead time medio",
+      avgCycle: "Cycle time medio",
+      throughput: "Throughput (últimos 14 días)",
+      day: "Día",
+      count: "Completadas",
+      na: "—",
     },
   },
   actionErrors: {

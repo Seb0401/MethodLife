@@ -38,14 +38,23 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
   );
 }
 
-export function MetricsPanel({ metrics }: { metrics: FlowMetrics }) {
+export function MetricsPanel({ metrics, projectId }: { metrics: FlowMetrics; projectId: string }) {
   const data = metrics.throughput.map((b) => ({ label: dayLabel(b.day), count: b.count }));
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-      <header className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-semibold">{t.title}</h2>
-        <p className="text-xs text-neutral-500">{t.subtitle}</p>
+      <header className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-lg font-semibold">{t.title}</h2>
+          <p className="text-xs text-neutral-500">{t.subtitle}</p>
+        </div>
+        <a
+          href={`/proyectos/${projectId}/reporte`}
+          download
+          className="shrink-0 rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+        >
+          {t.download}
+        </a>
       </header>
 
       {metrics.completedCount === 0 ? (

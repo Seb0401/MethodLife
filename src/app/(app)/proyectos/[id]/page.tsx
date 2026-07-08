@@ -7,7 +7,7 @@ import { MetricsPanel } from "@/components/kanban/metrics-panel";
 import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/actions/tasks";
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
 import { actionErrorMessage } from "@/lib/forms";
-import { computeFlowMetrics, type TransitionInput } from "@/domain/kanban/metrics";
+import { loadFlowMetrics } from "@/lib/kanban/flow";
 import { es } from "@/lib/i18n/es";
 
 export default async function ProjectPage({
@@ -96,28 +96,8 @@ export default async function ProjectPage({
         <SimpleTaskList projectId={project.id} />
       )}
 
-      {metrics && <MetricsPanel metrics={metrics} />}
+      {metrics && <MetricsPanel metrics={metrics} projectId={project.id} />}
     </div>
-  );
-}
-
-// Reads the transition log for a project and reduces it to flow metrics. Kept
-// out of the component body so the per-request `Date.now()` is not evaluated
-// during render (React purity rule).
-async function loadFlowMetrics(projectId: string) {
-  const transitions = await prisma.taskTransition.findMany({
-    where: { task: { projectId } },
-    select: { taskId: true, toStatus: true, at: true },
-  });
-  const byTask = new Map<string, TransitionInput[]>();
-  for (const tr of transitions) {
-    const list = byTask.get(tr.taskId) ?? [];
-    list.push({ toStatus: tr.toStatus, at: tr.at.getTime() });
-    byTask.set(tr.taskId, list);
-  }
-  return computeFlowMetrics(
-    [...byTask.entries()].map(([taskId, transitions]) => ({ taskId, transitions })),
-    { days: 14, now: Date.now() },
   );
 }
 
