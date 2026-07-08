@@ -64,6 +64,22 @@ enum TaskStatus {
   @@map("task_status")
 }
 
+enum SprintStatus {
+  planned
+  active
+  closed
+
+  @@map("sprint_status")
+}
+
+enum ProjectRoleType {
+  po
+  sm
+  dev
+
+  @@map("project_role_type")
+}
+
 model Workspace {
   id        String        @id @default(uuid()) @db.Uuid
   name      String
@@ -157,11 +173,13 @@ model Project {
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  area      LifeArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  goal      Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  area      LifeArea      @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  goal      Goal?         @relation(fields: [goalId], references: [id], onDelete: SetNull)
   boards    Board[]
   tasks     Task[]
+  sprints   Sprint[]
+  roles     ProjectRole[]
 
   @@index([workspaceId])
   @@index([areaId])
@@ -212,6 +230,7 @@ model Task {
   status           TaskStatus   @default(todo)
   position         Int          @default(0)
   dueDate          DateTime?    @map("due_date") @db.Date
+  sprintId         String?      @map("sprint_id") @db.Uuid
   assigneeId       String?      @map("assignee_id") @db.Uuid
   definitionOfDone Json?        @map("definition_of_done") @db.JsonB
   inbox            Boolean      @default(false)
@@ -222,6 +241,7 @@ model Task {
   project     Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   goal        Goal?            @relation(fields: [goalId], references: [id], onDelete: SetNull)
   column      BoardColumn?     @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  sprint      Sprint?          @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   transitions TaskTransition[]
 
   @@index([workspaceId])
@@ -229,6 +249,7 @@ model Task {
   @@index([projectId])
   @@index([goalId])
   @@index([columnId])
+  @@index([sprintId])
   @@map("tasks")
 }
 
@@ -249,4 +270,53 @@ model TaskTransition {
   @@index([taskId])
   @@index([at])
   @@map("task_transitions")
+}
+
+model Sprint {
+  id        String       @id @default(uuid()) @db.Uuid
+  projectId String       @map("project_id") @db.Uuid
+  name      String
+  startsAt  DateTime     @map("starts_at") @db.Date
+  endsAt    DateTime     @map("ends_at") @db.Date
+  status    SprintStatus @default(planned)
+  // Derived at close time from the transition log; stored for history (RF2.5/2.8).
+  velocity  Int?
+  summaryMd String?      @map("summary_md")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks         Task[]
+  retrospective Retrospective?
+
+  @@index([projectId])
+  @@map("sprints")
+}
+
+model Retrospective {
+  id        String   @id @default(uuid()) @db.Uuid
+  sprintId  String   @unique @map("sprint_id") @db.Uuid
+  wentWell  String?  @map("went_well")
+  toImprove String?  @map("to_improve")
+  actions   Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@map("retrospectives")
+}
+
+model ProjectRole {
+  projectId String          @map("project_id") @db.Uuid
+  // References auth.users(id); no FK because the auth schema is managed by Supabase.
+  userId    String          @map("user_id") @db.Uuid
+  role      ProjectRoleType
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_roles")
 }
