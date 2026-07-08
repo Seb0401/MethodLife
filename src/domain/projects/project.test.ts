@@ -3,10 +3,10 @@ import { isMethodActive } from "./method";
 import { DEFAULT_KANBAN_COLUMNS } from "./board";
 
 describe("isMethodActive", () => {
-  it("enables only kanban and simple in the current phase", () => {
+  it("enables kanban, simple and scrum; fdd is not wired yet", () => {
     expect(isMethodActive("kanban")).toBe(true);
     expect(isMethodActive("simple")).toBe(true);
-    expect(isMethodActive("scrum")).toBe(false);
+    expect(isMethodActive("scrum")).toBe(true);
     expect(isMethodActive("fdd")).toBe(false);
   });
 });

@@ -3,8 +3,8 @@
 export const PROJECT_METHODS = ["scrum", "kanban", "fdd", "simple"] as const;
 export type ProjectMethod = (typeof PROJECT_METHODS)[number];
 
-// Methods with a working board/flow today. scrum arrives in Fase 2, fdd in Fase 4.
-export const ACTIVE_METHODS: readonly ProjectMethod[] = ["kanban", "simple"] as const;
+// Methods with a working board/flow today. fdd arrives in Fase 4.
+export const ACTIVE_METHODS: readonly ProjectMethod[] = ["kanban", "simple", "scrum"] as const;
 
 export function isMethodActive(method: ProjectMethod): boolean {
   return ACTIVE_METHODS.includes(method);

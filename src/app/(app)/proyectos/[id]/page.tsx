@@ -4,6 +4,7 @@ import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { KanbanBoard } from "@/components/kanban/board";
 import { MetricsPanel } from "@/components/kanban/metrics-panel";
+import { ScrumBacklog } from "@/components/scrum/backlog";
 import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/actions/tasks";
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
 import { actionErrorMessage } from "@/lib/forms";
@@ -92,6 +93,8 @@ export default async function ProjectPage({
         ) : (
           <p className="text-sm text-neutral-500">{es.projects.noBoard}</p>
         )
+      ) : project.method === "scrum" ? (
+        <ScrumBacklog projectId={project.id} />
       ) : (
         <SimpleTaskList projectId={project.id} />
       )}

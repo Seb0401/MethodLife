@@ -60,9 +60,10 @@ export async function createProject(formData: FormData) {
       name: name.data,
       description: description.success ? description.data : undefined,
       method,
-      // A kanban project ships with a ready board (prepares 1.5).
+      // Kanban and Scrum projects ship with a ready board: Kanban uses it as its
+      // main board (1.5); Scrum reuses it as the sprint board (2.4).
       boards:
-        method === "kanban"
+        method === "kanban" || method === "scrum"
           ? {
               create: {
                 name: es.projects.defaultBoardName,
