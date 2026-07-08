@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { KanbanBoard } from "@/components/kanban/board";
+import { BurndownChart } from "@/components/scrum/burndown-chart";
+import { computeBurndown, type BurndownTask } from "@/domain/scrum/burndown";
 import { es } from "@/lib/i18n/es";
 
 function formatDate(date: Date): string {
@@ -8,8 +10,41 @@ function formatDate(date: Date): string {
   return `${dd}/${mm}`;
 }
 
+// Builds the burndown series for a sprint from its tasks and their completion
+// events (RF2.6). A task's `doneAt` is the latest transition into "done", used
+// only while the task is currently done.
+async function loadBurndown(sprintId: string, startsAt: Date, endsAt: Date) {
+  const [tasks, doneEvents] = await Promise.all([
+    prisma.task.findMany({
+      where: { sprintId },
+      select: { id: true, estimate: true, status: true },
+    }),
+    prisma.taskTransition.findMany({
+      where: { task: { sprintId }, toStatus: "done" },
+      select: { taskId: true, at: true },
+    }),
+  ]);
+
+  const lastDoneAt = new Map<string, number>();
+  for (const e of doneEvents) {
+    const at = e.at.getTime();
+    if (at > (lastDoneAt.get(e.taskId) ?? 0)) lastDoneAt.set(e.taskId, at);
+  }
+
+  const burndownTasks: BurndownTask[] = tasks.map((t) => ({
+    estimate: t.estimate,
+    doneAt: t.status === "done" ? (lastDoneAt.get(t.id) ?? null) : null,
+  }));
+
+  return {
+    series: computeBurndown({ startsAt, endsAt, tasks: burndownTasks }),
+    taskCount: tasks.length,
+  };
+}
+
 // Sprint board for a Scrum project (RF2.4): the project board scoped to the
-// active sprint's tasks, reusing the Kanban component in its "sprint" variant.
+// active sprint's tasks, reusing the Kanban component in its "sprint" variant,
+// plus the sprint burndown (RF2.6).
 export async function SprintBoard({ projectId }: { projectId: string }) {
   const active = await prisma.sprint.findFirst({
     where: { projectId, status: "active" },
@@ -25,17 +60,20 @@ export async function SprintBoard({ projectId }: { projectId: string }) {
     );
   }
 
-  const board = await prisma.board.findFirst({
-    where: { projectId },
-    include: {
-      columns: {
-        orderBy: { position: "asc" },
-        include: {
-          tasks: { where: { sprintId: active.id }, orderBy: { position: "asc" } },
+  const [board, burndown] = await Promise.all([
+    prisma.board.findFirst({
+      where: { projectId },
+      include: {
+        columns: {
+          orderBy: { position: "asc" },
+          include: {
+            tasks: { where: { sprintId: active.id }, orderBy: { position: "asc" } },
+          },
         },
       },
-    },
-  });
+    }),
+    loadBurndown(active.id, active.startsAt, active.endsAt),
+  ]);
 
   const columns = board?.columns ?? [];
   const hasCards = columns.some((c) => c.tasks.length > 0);
@@ -61,7 +99,7 @@ export async function SprintBoard({ projectId }: { projectId: string }) {
             .map(
               (c) =>
                 `${c.id}:${c.wipLimit}:${c.tasks
-                  .map((t) => `${t.id}:${t.priority}:${t.dueDate?.toISOString() ?? ""}`)
+                  .map((t) => `${t.id}:${t.priority}:${t.status}:${t.dueDate?.toISOString() ?? ""}`)
                   .join(",")}`,
             )
             .join("|")}
@@ -78,6 +116,13 @@ export async function SprintBoard({ projectId }: { projectId: string }) {
             })),
           }))}
         />
+      )}
+
+      {burndown.taskCount > 0 && (
+        <div className="flex flex-col gap-1 border-t border-neutral-100 pt-3 dark:border-neutral-800">
+          <h3 className="text-sm font-semibold">{es.scrum.burndownTitle}</h3>
+          <BurndownChart series={burndown.series} />
+        </div>
       )}
     </section>
   );
