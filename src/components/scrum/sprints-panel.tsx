@@ -1,7 +1,22 @@
 import { prisma } from "@/lib/prisma";
-import { createSprint, startSprint, closeSprint, removeFromSprint } from "@/actions/scrum";
+import {
+  createSprint,
+  startSprint,
+  closeSprint,
+  removeFromSprint,
+  saveRetrospective,
+} from "@/actions/scrum";
 import { sumPoints } from "@/domain/scrum/backlog";
+import { averageVelocity } from "@/domain/scrum/history";
 import { es } from "@/lib/i18n/es";
+
+const textareaClass =
+  "rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900";
+
+// Prisma stores retro actions as JSON; read them back as a newline list.
+function actionsToText(actions: unknown): string {
+  return Array.isArray(actions) ? actions.map(String).join("\n") : "";
+}
 
 const inputClass =
   "rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900";
@@ -28,14 +43,26 @@ export async function SprintsPanel({ projectId }: { projectId: string }) {
         orderBy: { position: "asc" },
         select: { id: true, title: true, estimate: true },
       },
+      retrospective: true,
     },
   });
 
+  // Average velocity across closed sprints (RF2.8).
+  const closed = sprints.filter((s) => s.status === "closed");
+  const avg = averageVelocity(closed.map((s) => s.velocity ?? 0));
+
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-      <header className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-semibold">{es.scrum.sprintsTitle}</h2>
-        <p className="text-xs text-neutral-500">{es.scrum.sprintsSubtitle}</p>
+      <header className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-lg font-semibold">{es.scrum.sprintsTitle}</h2>
+          <p className="text-xs text-neutral-500">{es.scrum.sprintsSubtitle}</p>
+        </div>
+        {avg !== null && (
+          <span className="shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            {es.scrum.avgVelocity}: {avg} · {closed.length} {es.scrum.closedCount}
+          </span>
+        )}
       </header>
 
       <form action={createSprint} className="flex flex-wrap items-end gap-2">
@@ -158,6 +185,49 @@ export async function SprintsPanel({ projectId }: { projectId: string }) {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {sprint.status !== "planned" && (
+                <details className="text-sm" open={!sprint.retrospective}>
+                  <summary className="cursor-pointer text-neutral-500">{es.scrum.retro}</summary>
+                  <form action={saveRetrospective} className="mt-2 flex flex-col gap-2">
+                    <input type="hidden" name="projectId" value={projectId} />
+                    <input type="hidden" name="sprintId" value={sprint.id} />
+                    <label className="flex flex-col gap-1 text-xs text-neutral-500">
+                      {es.scrum.wentWell}
+                      <textarea
+                        name="wentWell"
+                        rows={2}
+                        defaultValue={sprint.retrospective?.wentWell ?? ""}
+                        className={textareaClass}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-neutral-500">
+                      {es.scrum.toImprove}
+                      <textarea
+                        name="toImprove"
+                        rows={2}
+                        defaultValue={sprint.retrospective?.toImprove ?? ""}
+                        className={textareaClass}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-neutral-500">
+                      {es.scrum.actions}
+                      <textarea
+                        name="actions"
+                        rows={2}
+                        defaultValue={actionsToText(sprint.retrospective?.actions)}
+                        className={textareaClass}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      className="self-start rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+                    >
+                      {es.scrum.saveRetro}
+                    </button>
+                  </form>
+                </details>
               )}
             </article>
           ))}

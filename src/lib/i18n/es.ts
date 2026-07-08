@@ -288,6 +288,13 @@ export const es = {
       points: "pts",
       none: "Ninguna",
     },
+    avgVelocity: "Velocity promedio",
+    closedCount: "sprints cerrados",
+    retro: "Retrospectiva",
+    wentWell: "Qué funcionó",
+    toImprove: "Qué mejorar",
+    actions: "Acciones (una por línea)",
+    saveRetro: "Guardar retrospectiva",
     points: "pts",
     items: "elementos",
     statuses: {

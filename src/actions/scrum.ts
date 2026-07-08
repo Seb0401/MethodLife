@@ -11,6 +11,7 @@ import { isValidEstimate, moveInOrder, nextBacklogPosition } from "@/domain/scru
 import { canAssignToSprint, canTransitionSprint, isValidSprintRange } from "@/domain/scrum/sprint";
 import { computeVelocity, splitByCompletion } from "@/domain/scrum/close";
 import { sprintSummaryToMarkdown } from "@/domain/scrum/summary";
+import { parseActions } from "@/domain/scrum/history";
 import { statusForColumn } from "@/domain/kanban/status";
 import { es } from "@/lib/i18n/es";
 
@@ -360,6 +361,41 @@ export async function closeSprint(formData: FormData) {
       });
       position++;
     }
+  });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Save (create or update) a sprint's retrospective (RF2.7): structured notes on
+// what went well, what to improve, and action items. Allowed once the sprint has
+// started (not while merely planned).
+export async function saveRetrospective(formData: FormData) {
+  const projectId = z.uuid().parse(formData.get("projectId"));
+  const back = `/proyectos/${projectId}`;
+  const sprintId = z.uuid().parse(formData.get("sprintId"));
+
+  await requireScrumProject(projectId, back);
+  const sprint = await prisma.sprint.findUnique({
+    where: { id: sprintId },
+    select: { projectId: true, status: true },
+  });
+  if (!sprint || sprint.projectId !== projectId) backWithError(back, "NOT_FOUND");
+  if (sprint.status === "planned") backWithError(back, "SPRINT_INVALID_STATUS");
+
+  const text = (field: string) => {
+    const raw = formData.get(field);
+    const value = typeof raw === "string" ? raw.trim() : "";
+    return value.length > 0 ? value : null;
+  };
+  const actions = parseActions(
+    typeof formData.get("actions") === "string" ? String(formData.get("actions")) : "",
+  );
+
+  const data = { wentWell: text("wentWell"), toImprove: text("toImprove"), actions };
+  await prisma.retrospective.upsert({
+    where: { sprintId },
+    create: { sprintId, ...data },
+    update: data,
   });
   revalidatePath(back);
   redirect(back);
