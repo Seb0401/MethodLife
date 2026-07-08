@@ -7,6 +7,7 @@ import { MetricsPanel } from "@/components/kanban/metrics-panel";
 import { ScrumBacklog } from "@/components/scrum/backlog";
 import { SprintsPanel } from "@/components/scrum/sprints-panel";
 import { SprintBoard } from "@/components/scrum/sprint-board";
+import { ProjectRolesPanel } from "@/components/scrum/project-roles-panel";
 import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/actions/tasks";
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
 import { actionErrorMessage } from "@/lib/forms";
@@ -97,6 +98,7 @@ export default async function ProjectPage({
         )
       ) : project.method === "scrum" ? (
         <>
+          <ProjectRolesPanel projectId={project.id} />
           <SprintsPanel projectId={project.id} />
           <SprintBoard projectId={project.id} />
           <ScrumBacklog projectId={project.id} />

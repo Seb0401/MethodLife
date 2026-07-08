@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
+import { getWorkspaceContext, type WorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { backWithError } from "@/lib/forms";
 import { Prisma } from "@prisma/client";
 import { isValidEstimate, moveInOrder, nextBacklogPosition } from "@/domain/scrum/backlog";
@@ -12,6 +12,13 @@ import { canAssignToSprint, canTransitionSprint, isValidSprintRange } from "@/do
 import { computeVelocity, splitByCompletion } from "@/domain/scrum/close";
 import { sprintSummaryToMarkdown } from "@/domain/scrum/summary";
 import { parseActions } from "@/domain/scrum/history";
+import {
+  canManageBacklog,
+  canManageSprints,
+  PROJECT_ROLES,
+  type ProjectRole,
+} from "@/domain/scrum/permissions";
+import { canManageMembers } from "@/domain/workspace/roles";
 import { statusForColumn } from "@/domain/kanban/status";
 import { es } from "@/lib/i18n/es";
 
@@ -36,7 +43,29 @@ async function requireScrumProject(projectId: string, back: string) {
   if (!project || project.workspaceId !== ctx.workspace.id || project.method !== "scrum") {
     backWithError(back, "NOT_FOUND");
   }
-  return { project, workspaceId: ctx.workspace.id };
+  return { project, ctx };
+}
+
+// The current user's per-project Scrum role (po/sm/dev), or null if unassigned.
+async function projectRoleFor(projectId: string, userId: string): Promise<ProjectRole | null> {
+  const row = await prisma.projectRole.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+    select: { role: true },
+  });
+  return row?.role ?? null;
+}
+
+// Permission gates (RF12.3): backlog is the PO's, sprint lifecycle is the SM's;
+// workspace managers (and the personal-workspace owner) bypass both.
+async function assertBacklogManager(projectId: string, ctx: WorkspaceContext, back: string) {
+  if (!canManageBacklog(ctx.role, await projectRoleFor(projectId, ctx.user.id))) {
+    backWithError(back, "FORBIDDEN");
+  }
+}
+async function assertSprintManager(projectId: string, ctx: WorkspaceContext, back: string) {
+  if (!canManageSprints(ctx.role, await projectRoleFor(projectId, ctx.user.id))) {
+    backWithError(back, "FORBIDDEN");
+  }
 }
 
 // First column (todo) of a Scrum project's board, or null if it has none.
@@ -87,7 +116,8 @@ export async function addBacklogItem(formData: FormData) {
   const title = titleSchema.safeParse(formData.get("title"));
   if (!title.success) backWithError(back, "TASK_TITLE_REQUIRED");
 
-  const { project, workspaceId } = await requireScrumProject(projectId, back);
+  const { project, ctx } = await requireScrumProject(projectId, back);
+  await assertBacklogManager(projectId, ctx, back);
   const priority = prioritySchema.safeParse(formData.get("priority"));
 
   const estimateRaw = z.coerce.number().int().safeParse(formData.get("estimate"));
@@ -102,7 +132,7 @@ export async function addBacklogItem(formData: FormData) {
 
   await prisma.task.create({
     data: {
-      workspaceId,
+      workspaceId: ctx.workspace.id,
       projectId,
       goalId: project.goalId,
       title: title.data,
@@ -125,6 +155,7 @@ export async function setBacklogEstimate(formData: FormData) {
 
   const task = await prisma.task.findUnique({ where: { id }, select: { workspaceId: true } });
   if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
+  await assertBacklogManager(projectId, ctx, back);
 
   const raw = formData.get("estimate");
   let estimate: number | null = null;
@@ -148,7 +179,8 @@ export async function moveBacklogItem(formData: FormData) {
   const id = z.uuid().parse(formData.get("id"));
   const direction = z.enum(["up", "down"]).parse(formData.get("direction"));
 
-  await requireScrumProject(projectId, back);
+  const { ctx } = await requireScrumProject(projectId, back);
+  await assertBacklogManager(projectId, ctx, back);
 
   const backlog = await prisma.task.findMany({
     where: { projectId, sprintId: null },
@@ -179,7 +211,8 @@ export async function createSprint(formData: FormData) {
   const name = nameSchema.safeParse(formData.get("name"));
   if (!name.success) backWithError(back, "SPRINT_NAME_REQUIRED");
 
-  await requireScrumProject(projectId, back);
+  const { ctx } = await requireScrumProject(projectId, back);
+  await assertSprintManager(projectId, ctx, back);
 
   const startsAt = parseDate(formData.get("startsAt"));
   const endsAt = parseDate(formData.get("endsAt"));
@@ -212,6 +245,7 @@ export async function assignToSprint(formData: FormData) {
   ]);
   if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
   if (!sprint || sprint.projectId !== projectId) backWithError(back, "NOT_FOUND");
+  await assertBacklogManager(projectId, ctx, back);
   if (!canAssignToSprint(sprint.status)) backWithError(back, "SPRINT_CLOSED");
 
   // If the sprint is already running, the task also lands on the board now.
@@ -239,6 +273,7 @@ export async function removeFromSprint(formData: FormData) {
     select: { workspaceId: true, sprint: { select: { status: true } } },
   });
   if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
+  await assertBacklogManager(projectId, ctx, back);
   if (task.sprint && !canAssignToSprint(task.sprint.status)) backWithError(back, "SPRINT_CLOSED");
 
   const backlog = await prisma.task.findMany({
@@ -273,6 +308,7 @@ export async function startSprint(formData: FormData) {
   if (!project || project.workspaceId !== ctx.workspace.id || project.method !== "scrum") {
     backWithError(back, "NOT_FOUND");
   }
+  await assertSprintManager(projectId, ctx, back);
   const sprint = await prisma.sprint.findUnique({
     where: { id: sprintId },
     select: { projectId: true, status: true },
@@ -317,6 +353,7 @@ export async function closeSprint(formData: FormData) {
   if (!project || project.workspaceId !== ctx.workspace.id || project.method !== "scrum") {
     backWithError(back, "NOT_FOUND");
   }
+  await assertSprintManager(projectId, ctx, back);
   const sprint = await prisma.sprint.findUnique({
     where: { id: sprintId },
     select: { projectId: true, status: true, name: true, startsAt: true, endsAt: true },
@@ -374,7 +411,8 @@ export async function saveRetrospective(formData: FormData) {
   const back = `/proyectos/${projectId}`;
   const sprintId = z.uuid().parse(formData.get("sprintId"));
 
-  await requireScrumProject(projectId, back);
+  const { ctx } = await requireScrumProject(projectId, back);
+  await assertSprintManager(projectId, ctx, back);
   const sprint = await prisma.sprint.findUnique({
     where: { id: sprintId },
     select: { projectId: true, status: true },
@@ -397,6 +435,37 @@ export async function saveRetrospective(formData: FormData) {
     create: { sprintId, ...data },
     update: data,
   });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Assign (or clear) a member's per-project Scrum role (RF12.2). Only workspace
+// managers may do this. Sending "none" removes the role.
+export async function setProjectRole(formData: FormData) {
+  const projectId = z.uuid().parse(formData.get("projectId"));
+  const back = `/proyectos/${projectId}`;
+  const { ctx } = await requireScrumProject(projectId, back);
+  if (!canManageMembers(ctx.role)) backWithError(back, "FORBIDDEN");
+
+  const userId = z.uuid().parse(formData.get("userId"));
+  const roleRaw = z.enum([...PROJECT_ROLES, "none"]).parse(formData.get("role"));
+
+  // The target must be a member of this workspace.
+  const member = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: ctx.workspace.id, userId } },
+    select: { userId: true },
+  });
+  if (!member) backWithError(back, "NOT_FOUND");
+
+  if (roleRaw === "none") {
+    await prisma.projectRole.deleteMany({ where: { projectId, userId } });
+  } else {
+    await prisma.projectRole.upsert({
+      where: { projectId_userId: { projectId, userId } },
+      create: { projectId, userId, role: roleRaw },
+      update: { role: roleRaw },
+    });
+  }
   revalidatePath(back);
   redirect(back);
 }
