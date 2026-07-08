@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -14,6 +15,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { createClient } from "@/lib/supabase/client";
 import { moveTask } from "@/actions/kanban";
 import { createTaskInColumn, deleteTask, setTaskDueDate } from "@/actions/tasks";
 import { addColumn, renameColumn, setColumnWip, deleteColumn } from "@/actions/kanban";
@@ -314,9 +316,29 @@ export function KanbanBoard({
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("");
   const [dueFilter, setDueFilter] = useState<DueFilter>("");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const router = useRouter();
   // The parent remounts this component (via a data-derived `key`) whenever the
   // server sends fresh data, so local state starts from the server truth. An
   // optimistic move never changes the props, so it never triggers a remount.
+
+  // Realtime (RF12.4): subscribe to task changes and refresh when a teammate
+  // touches a card on THIS board. Realtime honours RLS, so we only receive
+  // events for our own workspaces; we scope further to this board's columns.
+  const columnKey = columns.map((c) => c.id).join(",");
+  useEffect(() => {
+    const columnIds = new Set(columnKey.split(","));
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`board:${columnIds.values().next().value}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, (payload) => {
+        const row = (payload.new ?? payload.old) as { column_id?: string | null };
+        if (row?.column_id && columnIds.has(row.column_id)) router.refresh();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [columnKey, router]);
 
   function onDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
