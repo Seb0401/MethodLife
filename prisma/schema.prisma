@@ -121,6 +121,46 @@ enum InvariantStatus {
   @@map("invariant_status")
 }
 
+enum FeatureStatus {
+  design
+  design_reviewed
+  build
+  build_reviewed
+  done
+
+  @@map("feature_status")
+}
+
+enum PrototypeKind {
+  throwaway
+  evolutionary
+
+  @@map("prototype_kind")
+}
+
+enum RoutineDecision {
+  evolve
+  discard
+  approve
+
+  @@map("routine_decision")
+}
+
+enum EvaluationResult {
+  met
+  not_met
+
+  @@map("evaluation_result")
+}
+
+enum GoalLinkType {
+  depends_on
+  refines
+  conflicts
+
+  @@map("goal_link_type")
+}
+
 model Workspace {
   id        String        @id @default(uuid()) @db.Uuid
   name      String
@@ -138,6 +178,7 @@ model Workspace {
   invitations WorkspaceInvitation[]
   habits      Habit[]
   invariants  Invariant[]
+  routines    Routine[]
 
   @@map("workspaces")
 }
@@ -216,10 +257,13 @@ model Goal {
   createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  area      LifeArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  projects  Project[]
-  tasks     Task[]
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  area          LifeArea     @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  projects      Project[]
+  tasks         Task[]
+  featureSets   FeatureSet[]
+  outgoingLinks GoalLink[]   @relation("GoalLinkFrom")
+  incomingLinks GoalLink[]   @relation("GoalLinkTo")
 
   @@index([workspaceId])
   @@index([areaId])
@@ -296,6 +340,7 @@ model Task {
   position         Int          @default(0)
   dueDate          DateTime?    @map("due_date") @db.Date
   sprintId         String?      @map("sprint_id") @db.Uuid
+  featureId        String?      @map("feature_id") @db.Uuid
   assigneeId       String?      @map("assignee_id") @db.Uuid
   definitionOfDone Json?        @map("definition_of_done") @db.JsonB
   inbox            Boolean      @default(false)
@@ -307,6 +352,7 @@ model Task {
   goal        Goal?            @relation(fields: [goalId], references: [id], onDelete: SetNull)
   column      BoardColumn?     @relation(fields: [columnId], references: [id], onDelete: SetNull)
   sprint      Sprint?          @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  feature     Feature?         @relation(fields: [featureId], references: [id], onDelete: SetNull)
   transitions TaskTransition[]
 
   @@index([workspaceId])
@@ -315,6 +361,7 @@ model Task {
   @@index([goalId])
   @@index([columnId])
   @@index([sprintId])
+  @@index([featureId])
   @@map("tasks")
 }
 
@@ -507,4 +554,154 @@ model InvariantViolation {
   @@index([invariantId])
   @@index([at])
   @@map("invariant_violations")
+}
+
+// --- FDD (M4) -------------------------------------------------------------
+
+// A group of features under a goal (RF4.1).
+model FeatureSet {
+  id        String   @id @default(uuid()) @db.Uuid
+  goalId    String   @map("goal_id") @db.Uuid
+  name      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  goal     Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  features Feature[]
+
+  @@index([goalId])
+  @@map("feature_sets")
+}
+
+// A feature whose lifecycle is driven by the `feature` state machine (RF4.2).
+// Weighted progress (RF4.3) is computed from feature statuses in the domain.
+model Feature {
+  id           String        @id @default(uuid()) @db.Uuid
+  featureSetId String        @map("feature_set_id") @db.Uuid
+  title        String
+  estimate     Int?
+  // Optional owner in team workspaces. References auth.users(id); no FK.
+  ownerId      String?       @map("owner_id") @db.Uuid
+  status       FeatureStatus @default(design)
+  position     Int           @default(0)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  featureSet   FeatureSet           @relation(fields: [featureSetId], references: [id], onDelete: Cascade)
+  statusEvents FeatureStatusEvent[]
+  tasks        Task[]
+
+  @@index([featureSetId])
+  @@map("features")
+}
+
+// Event table: INSERT-only feature status log (RF4.4 weekly progress derives here).
+model FeatureStatusEvent {
+  id         String         @id @default(uuid()) @db.Uuid
+  featureId  String         @map("feature_id") @db.Uuid
+  fromStatus FeatureStatus? @map("from_status")
+  toStatus   FeatureStatus  @map("to_status")
+  actorId    String         @map("actor_id") @db.Uuid
+  at         DateTime       @default(now()) @db.Timestamptz(6)
+
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@index([featureId])
+  @@index([at])
+  @@map("feature_status_events")
+}
+
+// --- Traceability (M7) ----------------------------------------------------
+
+// A directed relation between two goals (RF7.4): depends_on / refines /
+// conflicts. Conflicts drive alerts in the matrix view.
+model GoalLink {
+  id         String       @id @default(uuid()) @db.Uuid
+  fromGoalId String       @map("from_goal_id") @db.Uuid
+  toGoalId   String       @map("to_goal_id") @db.Uuid
+  type       GoalLinkType
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  fromGoal Goal @relation("GoalLinkFrom", fields: [fromGoalId], references: [id], onDelete: Cascade)
+  toGoal   Goal @relation("GoalLinkTo", fields: [toGoalId], references: [id], onDelete: Cascade)
+
+  @@unique([fromGoalId, toGoalId, type])
+  @@index([fromGoalId])
+  @@index([toGoalId])
+  @@map("goal_links")
+}
+
+// --- Routine prototyping (M8) ---------------------------------------------
+
+// A routine prototyped either throwaway or evolutionary (RF8.1).
+model Routine {
+  id            String        @id @default(uuid()) @db.Uuid
+  workspaceId   String        @map("workspace_id") @db.Uuid
+  ownerId       String        @map("owner_id") @db.Uuid
+  name          String
+  prototypeKind PrototypeKind @map("prototype_kind")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions  RoutineVersion[]
+
+  @@index([workspaceId])
+  @@map("routines")
+}
+
+// A numbered version of a routine (RF8.2), closed with a justified decision (RF8.4).
+model RoutineVersion {
+  id            String           @id @default(uuid()) @db.Uuid
+  routineId     String           @map("routine_id") @db.Uuid
+  number        Int
+  startedAt     DateTime         @default(now()) @map("started_at") @db.Timestamptz(6)
+  closedAt      DateTime?        @map("closed_at") @db.Timestamptz(6)
+  decision      RoutineDecision?
+  justification String?
+
+  routine      Routine              @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  requirements RoutineRequirement[]
+
+  @@unique([routineId, number])
+  @@index([routineId])
+  @@map("routine_versions")
+}
+
+// A requirement to validate within a version (RF8.2). `inheritedFrom` links to
+// the requirement it was carried over from when a version evolves (RF8.4).
+model RoutineRequirement {
+  id            String   @id @default(uuid()) @db.Uuid
+  versionId     String   @map("version_id") @db.Uuid
+  text          String
+  inheritedFrom String?  @map("inherited_from") @db.Uuid
+  position      Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  version     RoutineVersion       @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  source      RoutineRequirement?  @relation("RequirementInheritance", fields: [inheritedFrom], references: [id], onDelete: SetNull)
+  inheritedBy RoutineRequirement[] @relation("RequirementInheritance")
+  evaluations RoutineEvaluation[]
+
+  @@index([versionId])
+  @@map("routine_requirements")
+}
+
+// Event table: a daily evaluation of one requirement (RF8.3). In teams several
+// members evaluate the same requirement/day and results are consolidated (RF8.6).
+model RoutineEvaluation {
+  id            String           @id @default(uuid()) @db.Uuid
+  requirementId String           @map("requirement_id") @db.Uuid
+  evaluatorId   String           @map("evaluator_id") @db.Uuid
+  date          DateTime         @db.Date
+  result        EvaluationResult
+  note          String?
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  requirement RoutineRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([requirementId, evaluatorId, date])
+  @@index([requirementId])
+  @@map("routine_evaluations")
 }
