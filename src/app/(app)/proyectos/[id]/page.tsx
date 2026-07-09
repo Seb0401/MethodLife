@@ -13,7 +13,16 @@ import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/act
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
 import { actionErrorMessage } from "@/lib/forms";
 import { loadFlowMetrics } from "@/lib/kanban/flow";
+import { parseDod } from "@/domain/formal/dod";
 import { es } from "@/lib/i18n/es";
+
+// Compact signature of a task's definition of done so the board remounts when a
+// postcondition is confirmed (its optimistic state re-seeds from the server).
+function dodSignature(raw: unknown): string {
+  const dod = parseDod(raw);
+  if (!dod) return "";
+  return dod.postconditions.map((p) => (p.done ? "1" : "0")).join("");
+}
 
 export default async function ProjectPage({
   params,
@@ -77,7 +86,10 @@ export default async function ProjectPage({
               .map(
                 (c) =>
                   `${c.id}:${c.name}:${c.wipLimit}:${c.tasks
-                    .map((t) => `${t.id}:${t.priority}:${t.dueDate?.toISOString() ?? ""}`)
+                    .map(
+                      (t) =>
+                        `${t.id}:${t.priority}:${t.dueDate?.toISOString() ?? ""}:${dodSignature(t.definitionOfDone)}`,
+                    )
                     .join(",")}`,
               )
               .join("|")}
@@ -91,6 +103,7 @@ export default async function ProjectPage({
                 title: t.title,
                 priority: t.priority,
                 dueDate: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null,
+                dod: parseDod(t.definitionOfDone),
               })),
             }))}
           />

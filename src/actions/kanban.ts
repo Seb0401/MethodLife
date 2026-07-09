@@ -8,6 +8,7 @@ import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { backWithError } from "@/lib/forms";
 import { WIP_LIMIT_REACHED, wipReached } from "@/domain/kanban/wip";
 import { statusForColumn } from "@/domain/kanban/status";
+import { canComplete, DOD_NOT_CONFIRMED } from "@/domain/formal/dod";
 import { evaluateInvariants } from "@/lib/formal/evaluate";
 
 const moveSchema = z.object({
@@ -36,7 +37,13 @@ export async function moveTask(input: z.infer<typeof moveSchema>): Promise<MoveR
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    select: { workspaceId: true, columnId: true, status: true, projectId: true },
+    select: {
+      workspaceId: true,
+      columnId: true,
+      status: true,
+      projectId: true,
+      definitionOfDone: true,
+    },
   });
   if (!task || task.workspaceId !== ctx.workspace.id) return { ok: false, error: "NOT_FOUND" };
 
@@ -69,6 +76,12 @@ export async function moveTask(input: z.infer<typeof moveSchema>): Promise<MoveR
 
   const columnChanged = task.columnId !== toColumnId;
   const status = statusForColumn(destCol.position, destCol.board.columns.length);
+
+  // Definition-of-done gate (RF6.1): a card can't land in a "done" column while
+  // its postconditions are unconfirmed.
+  if (columnChanged && status === "done" && !canComplete(task.definitionOfDone)) {
+    return { ok: false, error: DOD_NOT_CONFIRMED };
+  }
 
   // Rebuild contiguous positions in the destination column with the task at toIndex.
   const siblings = await prisma.task.findMany({

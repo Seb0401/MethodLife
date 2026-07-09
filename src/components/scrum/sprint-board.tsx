@@ -2,7 +2,16 @@ import { prisma } from "@/lib/prisma";
 import { KanbanBoard } from "@/components/kanban/board";
 import { BurndownChart } from "@/components/scrum/burndown-chart";
 import { computeBurndown, type BurndownTask } from "@/domain/scrum/burndown";
+import { parseDod } from "@/domain/formal/dod";
 import { es } from "@/lib/i18n/es";
+
+// Compact signature of a task's definition of done so the board remounts when a
+// postcondition is confirmed on the sprint board too.
+function dodSignature(raw: unknown): string {
+  const dod = parseDod(raw);
+  if (!dod) return "";
+  return dod.postconditions.map((p) => (p.done ? "1" : "0")).join("");
+}
 
 function formatDate(date: Date): string {
   const dd = String(date.getUTCDate()).padStart(2, "0");
@@ -99,7 +108,10 @@ export async function SprintBoard({ projectId }: { projectId: string }) {
             .map(
               (c) =>
                 `${c.id}:${c.wipLimit}:${c.tasks
-                  .map((t) => `${t.id}:${t.priority}:${t.status}:${t.dueDate?.toISOString() ?? ""}`)
+                  .map(
+                    (t) =>
+                      `${t.id}:${t.priority}:${t.status}:${t.dueDate?.toISOString() ?? ""}:${dodSignature(t.definitionOfDone)}`,
+                  )
                   .join(",")}`,
             )
             .join("|")}
@@ -113,6 +125,7 @@ export async function SprintBoard({ projectId }: { projectId: string }) {
               title: t.title,
               priority: t.priority,
               dueDate: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null,
+              dod: parseDod(t.definitionOfDone),
             })),
           }))}
         />

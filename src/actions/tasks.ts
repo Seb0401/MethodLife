@@ -8,6 +8,14 @@ import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { backWithError } from "@/lib/forms";
 import { isTraceable } from "@/domain/tasks/traceability";
 import { statusForColumn } from "@/domain/kanban/status";
+import { Prisma } from "@prisma/client";
+import {
+  buildDod,
+  canComplete,
+  isEmptyDod,
+  parseDod,
+  togglePostcondition as togglePostconditionAt,
+} from "@/domain/formal/dod";
 
 const titleSchema = z.string().trim().min(1).max(200);
 const prioritySchema = z.enum(["low", "medium", "high"]);
@@ -233,10 +241,68 @@ export async function toggleTaskDone(formData: FormData) {
   const back = safePath(formData.get("redirectTo"), "/inbox");
   const done = formData.get("done") === "true";
 
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: { workspaceId: true, definitionOfDone: true },
+  });
+  if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
+
+  // Definition-of-done gate (RF6.1): can't complete with pending postconditions.
+  if (done && !canComplete(task.definitionOfDone)) backWithError(back, "DOD_NOT_CONFIRMED");
+
+  await prisma.task.update({ where: { id }, data: { status: done ? "done" : "todo" } });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Set or clear a task's definition of done (RF6.1): pre- and postconditions as
+// newline-separated text. An empty definition clears the field.
+export async function setDefinitionOfDone(formData: FormData) {
+  const ctx = await getWorkspaceContext();
+  const id = z.uuid().parse(formData.get("id"));
+  const back = safePath(formData.get("redirectTo"), "/inbox");
+  const pre =
+    typeof formData.get("preconditions") === "string" ? String(formData.get("preconditions")) : "";
+  const post =
+    typeof formData.get("postconditions") === "string"
+      ? String(formData.get("postconditions"))
+      : "";
+
   const task = await prisma.task.findUnique({ where: { id }, select: { workspaceId: true } });
   if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
 
-  await prisma.task.update({ where: { id }, data: { status: done ? "done" : "todo" } });
+  const dod = buildDod(pre, post);
+  await prisma.task.update({
+    where: { id },
+    data: {
+      definitionOfDone: isEmptyDod(dod) ? Prisma.DbNull : (dod as unknown as Prisma.InputJsonValue),
+    },
+  });
+  revalidatePath(back);
+  redirect(back);
+}
+
+// Confirm/unconfirm one postcondition of a task's definition of done (RF6.1).
+export async function togglePostcondition(formData: FormData) {
+  const ctx = await getWorkspaceContext();
+  const id = z.uuid().parse(formData.get("id"));
+  const back = safePath(formData.get("redirectTo"), "/inbox");
+  const index = z.coerce.number().int().min(0).parse(formData.get("index"));
+
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: { workspaceId: true, definitionOfDone: true },
+  });
+  if (!task || task.workspaceId !== ctx.workspace.id) backWithError(back, "NOT_FOUND");
+
+  const dod = parseDod(task.definitionOfDone);
+  if (!dod) backWithError(back, "NOT_FOUND");
+
+  const next = togglePostconditionAt(dod, index);
+  await prisma.task.update({
+    where: { id },
+    data: { definitionOfDone: next as unknown as Prisma.InputJsonValue },
+  });
   revalidatePath(back);
   redirect(back);
 }

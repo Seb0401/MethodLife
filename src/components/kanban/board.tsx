@@ -17,13 +17,29 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/supabase/client";
 import { moveTask } from "@/actions/kanban";
-import { createTaskInColumn, deleteTask, setTaskDueDate } from "@/actions/tasks";
+import {
+  createTaskInColumn,
+  deleteTask,
+  setTaskDueDate,
+  setDefinitionOfDone,
+  togglePostcondition,
+} from "@/actions/tasks";
 import { addColumn, renameColumn, setColumnWip, deleteColumn } from "@/actions/kanban";
 import { isDueToday, isOverdue } from "@/domain/tasks/today";
 import { es } from "@/lib/i18n/es";
 
 type Priority = "low" | "medium" | "high";
-export type BoardTask = { id: string; title: string; priority: Priority; dueDate: string | null };
+export type TaskDod = {
+  preconditions: string[];
+  postconditions: { text: string; done: boolean }[];
+};
+export type BoardTask = {
+  id: string;
+  title: string;
+  priority: Priority;
+  dueDate: string | null;
+  dod: TaskDod | null;
+};
 export type BoardColumn = { id: string; name: string; wipLimit: number | null; tasks: BoardTask[] };
 
 type DueFilter = "" | "overdue" | "today" | "none";
@@ -86,6 +102,7 @@ function Card({ task, projectId }: { task: BoardTask; projectId: string }) {
           {task.title}
         </button>
         <div className="flex items-center gap-1">
+          <DodPopover taskId={task.id} back={back} dod={task.dod} />
           <DueDatePopover taskId={task.id} back={back} value={task.dueDate} />
           <form action={deleteTask}>
             <input type="hidden" name="id" value={task.id} />
@@ -154,6 +171,92 @@ function DueDatePopover({
             </button>
           </form>
         )}
+      </div>
+    </details>
+  );
+}
+
+// Definition of done (RF6.1): a checklist of postconditions plus an editor.
+// Postconditions must all be confirmed before the card may reach a done column.
+function DodPopover({ taskId, back, dod }: { taskId: string; back: string; dod: TaskDod | null }) {
+  const pending = dod ? dod.postconditions.filter((p) => !p.done).length : 0;
+  const icon = pending > 0 ? "🔒" : dod ? "✅" : "📋";
+
+  return (
+    <details className="relative">
+      <summary
+        className="cursor-pointer list-none text-xs text-neutral-300 hover:text-neutral-600"
+        aria-label={es.tasks.dod.title}
+      >
+        {icon}
+        {pending > 0 && <span className="ml-0.5 text-[10px] text-red-600">{pending}</span>}
+      </summary>
+      <div className="absolute right-0 z-10 mt-1 flex w-64 flex-col gap-2 rounded-md border border-neutral-200 bg-white p-3 text-xs shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+        <p className="font-semibold">{es.tasks.dod.title}</p>
+
+        {dod && dod.postconditions.length > 0 && (
+          <ul className="flex flex-col gap-1">
+            {dod.postconditions.map((p, index) => (
+              <li key={index}>
+                <form action={togglePostcondition} className="flex items-start gap-1">
+                  <input type="hidden" name="id" value={taskId} />
+                  <input type="hidden" name="redirectTo" value={back} />
+                  <input type="hidden" name="index" value={index} />
+                  <button
+                    type="submit"
+                    className={`text-left ${p.done ? "text-green-600" : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"}`}
+                  >
+                    <span className="mr-1">{p.done ? "☑" : "☐"}</span>
+                    <span className={p.done ? "line-through" : ""}>{p.text}</span>
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {dod && dod.preconditions.length > 0 && (
+          <div className="text-neutral-500">
+            <p className="font-medium">{es.tasks.dod.preLabel}</p>
+            <ul className="list-inside list-disc">
+              {dod.preconditions.map((pre, i) => (
+                <li key={i}>{pre}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <details>
+          <summary className="cursor-pointer list-none text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200">
+            ✎ {es.tasks.dod.save}
+          </summary>
+          <form action={setDefinitionOfDone} className="mt-1 flex flex-col gap-1">
+            <input type="hidden" name="id" value={taskId} />
+            <input type="hidden" name="redirectTo" value={back} />
+            <label className="text-neutral-500">{es.tasks.dod.preconditions}</label>
+            <textarea
+              name="preconditions"
+              rows={2}
+              defaultValue={dod ? dod.preconditions.join("\n") : ""}
+              className="rounded-md border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-900"
+            />
+            <label className="text-neutral-500">{es.tasks.dod.postconditions}</label>
+            <textarea
+              name="postconditions"
+              rows={2}
+              defaultValue={dod ? dod.postconditions.map((p) => p.text).join("\n") : ""}
+              className="rounded-md border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-900"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-2 py-1 dark:border-neutral-700"
+            >
+              {es.tasks.dod.save}
+            </button>
+          </form>
+        </details>
+
+        <p className="text-[11px] text-neutral-400">{es.tasks.dod.hint}</p>
       </div>
     </details>
   );
