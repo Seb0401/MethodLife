@@ -179,6 +179,8 @@ model Workspace {
   habits      Habit[]
   invariants  Invariant[]
   routines    Routine[]
+  flowDiagrams FlowDiagram[]
+  insights     Insight[]
 
   @@map("workspaces")
 }
@@ -289,6 +291,7 @@ model Project {
   tasks     Task[]
   sprints   Sprint[]
   roles     ProjectRole[]
+  decisions MethodDecision[]
 
   @@index([workspaceId])
   @@index([areaId])
@@ -704,4 +707,74 @@ model RoutineEvaluation {
   @@unique([requirementId, evaluatorId, date])
   @@index([requirementId])
   @@map("routine_evaluations")
+}
+
+// --- Method selector (M9) -------------------------------------------------
+
+// A recorded method-selection decision for a project (RF9.5): the questionnaire
+// answers, what the rules engine recommended, and what the user chose.
+model MethodDecision {
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String        @map("project_id") @db.Uuid
+  answers     Json          @db.JsonB
+  recommended ProjectMethod
+  chosen      ProjectMethod
+  at          DateTime      @default(now()) @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("method_decisions")
+}
+
+// --- Visual planning (M10) ------------------------------------------------
+
+// A personal flow diagram saved per workspace (RF10.3). `graph` holds nodes and
+// edges as JSON.
+model FlowDiagram {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  name        String
+  graph       Json     @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("flow_diagrams")
+}
+
+// --- Insights (M11) -------------------------------------------------------
+
+// Per-workspace enable/override state for an insight rule (RF11.1). The rule
+// catalog itself is static code; a null workspace_id would denote a system-wide
+// default. No FK on workspace_id so system rows can exist without one.
+model InsightRule {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String?  @map("workspace_id") @db.Uuid
+  key         String
+  rule        Json     @db.JsonB
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([workspaceId])
+  @@map("insight_rules")
+}
+
+// A fired insight (RF11.2): which rule produced it and the data (payload) that
+// explains why, so the panel can be fully transparent.
+model Insight {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  ruleKey     String   @map("rule_key")
+  payload     Json     @db.JsonB
+  seen        Boolean  @default(false)
+  at          DateTime @default(now()) @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("insights")
 }
