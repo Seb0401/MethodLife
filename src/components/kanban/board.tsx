@@ -236,7 +236,11 @@ function Column({
   const full = col.wipLimit != null && count >= col.wipLimit;
 
   return (
-    <div className="flex w-64 shrink-0 flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-950">
+    <div
+      data-testid="board-column"
+      data-column-name={col.name}
+      className="flex w-64 shrink-0 flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-950"
+    >
       <header className="flex items-center gap-2 px-1">
         <h3 className="text-sm font-semibold">{col.name}</h3>
         <span

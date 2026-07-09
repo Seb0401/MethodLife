@@ -14,6 +14,12 @@ const eslintConfig = [
   {
     ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"],
   },
+  {
+    // Playwright config and E2E tests must be CommonJS: Playwright 1.61 needs
+    // Node >= 20.6/22 to load .ts tests, which the dev environment lacks.
+    files: ["playwright.config.js", "e2e/**/*.js"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
 ];
 
 export default eslintConfig;
