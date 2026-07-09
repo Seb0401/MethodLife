@@ -8,6 +8,7 @@ import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { backWithError } from "@/lib/forms";
 import { WIP_LIMIT_REACHED, wipReached } from "@/domain/kanban/wip";
 import { statusForColumn } from "@/domain/kanban/status";
+import { evaluateInvariants } from "@/lib/formal/evaluate";
 
 const moveSchema = z.object({
   taskId: z.uuid(),
@@ -110,6 +111,12 @@ export async function moveTask(input: z.infer<typeof moveSchema>): Promise<MoveR
       });
     }
   });
+
+  // After the state change, re-check the workspace invariants (RF6.3): a WIP
+  // ceiling breach records exactly one violation carrying this event.
+  if (columnChanged) {
+    await evaluateInvariants(ctx.workspace.id, "task_moved");
+  }
 
   revalidatePath(`/proyectos/${destCol.board.projectId}`);
   return { ok: true };
