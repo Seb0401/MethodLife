@@ -395,6 +395,8 @@ export const es = {
     closeVersion: "Cerrar versión",
     decisionLabel: "Decisión",
     timelineTitle: "Versiones",
+    reportTitle: "Informe de rutina",
+    downloadReport: "Descargar informe (.md)",
   },
   traceability: {
     title: "Trazabilidad",
@@ -423,6 +425,8 @@ export const es = {
     noLinks: "Sin relaciones declaradas.",
     conflictAlert: "Conflicto declarado entre metas.",
     downloadMatrix: "Descargar matriz (.md)",
+    deadMark: "(muerta)",
+    none: "Ninguna",
   },
   fdd: {
     title: "Modo FDD",

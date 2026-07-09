@@ -1,7 +1,7 @@
+import Link from "next/link";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
-import { prisma } from "@/lib/prisma";
 import { addGoalLink, deleteGoalLink } from "@/actions/traceability";
-import { findDeadGoals } from "@/domain/traceability/dead-goals";
+import { loadTraceability } from "@/lib/traceability/matrix";
 import { FormError, SubmitButton, Select } from "@/components/ui/form";
 import { actionErrorMessage } from "@/lib/forms";
 import { es } from "@/lib/i18n/es";
@@ -14,56 +14,15 @@ export default async function TraceabilityPage({
   const { error } = await searchParams;
   const ctx = await getWorkspaceContext();
 
-  const [goals, projects, tasks, links] = await Promise.all([
-    prisma.goal.findMany({
-      where: { workspaceId: ctx.workspace.id },
-      orderBy: [{ areaId: "asc" }, { createdAt: "asc" }],
-      include: { area: { select: { name: true } } },
-    }),
-    prisma.project.findMany({
-      where: { workspaceId: ctx.workspace.id },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.task.findMany({
-      where: { workspaceId: ctx.workspace.id, inbox: false },
-      select: { goalId: true, projectId: true, status: true },
-    }),
-    prisma.goalLink.findMany({
-      where: { fromGoal: { workspaceId: ctx.workspace.id } },
-      orderBy: { createdAt: "asc" },
-      include: {
-        fromGoal: { select: { title: true } },
-        toGoal: { select: { title: true } },
-      },
-    }),
-  ]);
+  const {
+    goals,
+    projects,
+    counts: cell,
+    deadIds,
+    orphanCount,
+    links,
+  } = await loadTraceability(ctx.workspace.id);
 
-  // Task counts per goal×project cell, active tasks per goal, and orphan work.
-  const cell = new Map<string, number>();
-  const activeByGoal = new Map<string, number>();
-  let orphanCount = 0;
-  for (const t of tasks) {
-    if (!t.goalId) {
-      orphanCount++;
-      continue;
-    }
-    if (t.projectId) {
-      const key = `${t.goalId}|${t.projectId}`;
-      cell.set(key, (cell.get(key) ?? 0) + 1);
-    }
-    if (t.status !== "done") activeByGoal.set(t.goalId, (activeByGoal.get(t.goalId) ?? 0) + 1);
-  }
-
-  const deadIds = new Set(
-    findDeadGoals(
-      goals.map((g) => ({
-        id: g.id,
-        status: g.status,
-        activeTaskCount: activeByGoal.get(g.id) ?? 0,
-      })),
-    ),
-  );
   const totalByGoal = (goalId: string) =>
     projects.reduce((sum, p) => sum + (cell.get(`${goalId}|${p.id}`) ?? 0), 0);
 
@@ -78,7 +37,18 @@ export default async function TraceabilityPage({
 
       {/* Matrix (RF7.2) */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">{es.traceability.matrixTitle}</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold">{es.traceability.matrixTitle}</h2>
+          {goals.length > 0 && (
+            <Link
+              href="/trazabilidad/matriz"
+              prefetch={false}
+              className="text-xs text-neutral-500 hover:underline"
+            >
+              {es.traceability.downloadMatrix}
+            </Link>
+          )}
+        </div>
         {goals.length === 0 ? (
           <p className="text-sm text-neutral-500">{es.traceability.noGoals}</p>
         ) : projects.length === 0 ? (

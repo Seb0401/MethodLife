@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type {
   Routine,
   RoutineVersion,
@@ -67,7 +68,14 @@ export function RoutineCard({
         <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500 dark:bg-neutral-800">
           {es.routines.kinds[routine.prototypeKind]}
         </span>
-        <form action={deleteRoutine} className="ml-auto">
+        <Link
+          href={`/rutinas/${routine.id}/informe`}
+          prefetch={false}
+          className="ml-auto text-xs text-neutral-500 hover:underline"
+        >
+          {es.routines.downloadReport}
+        </Link>
+        <form action={deleteRoutine}>
           <input type="hidden" name="id" value={routine.id} />
           <button type="submit" className="text-xs text-neutral-400 hover:text-red-600">
             {es.routines.deleteRoutine}
