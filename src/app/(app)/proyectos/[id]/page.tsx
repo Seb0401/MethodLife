@@ -8,6 +8,7 @@ import { ScrumBacklog } from "@/components/scrum/backlog";
 import { SprintsPanel } from "@/components/scrum/sprints-panel";
 import { SprintBoard } from "@/components/scrum/sprint-board";
 import { ProjectRolesPanel } from "@/components/scrum/project-roles-panel";
+import { FddMode } from "@/components/fdd/fdd-mode";
 import { ActivityFeed } from "@/components/projects/activity-feed";
 import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/actions/tasks";
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
@@ -117,6 +118,12 @@ export default async function ProjectPage({
           <SprintBoard projectId={project.id} />
           <ScrumBacklog projectId={project.id} />
         </>
+      ) : project.method === "fdd" ? (
+        project.goalId ? (
+          <FddMode projectId={project.id} goalId={project.goalId} workspaceId={ctx.workspace.id} />
+        ) : (
+          <p className="text-sm text-neutral-500">{es.fdd.needsGoal}</p>
+        )
       ) : (
         <SimpleTaskList projectId={project.id} />
       )}
