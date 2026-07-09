@@ -1,13 +1,33 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { es } from "../src/lib/i18n/es";
 import { DEFAULT_KANBAN_COLUMNS } from "../src/domain/projects/board";
+import { SEED_MACHINES, toStoredMachine } from "../src/domain/formal/machines";
 
 const prisma = new PrismaClient();
 
-// Idempotent seed (RF1.2 / roadmap 1.2): every existing workspace gets the
-// default life areas, and the first personal workspace gets a demo goal and a
-// demo Kanban project with its board. Safe to run multiple times.
+// Idempotent seed (RF1.2 / roadmap 1.2 / 3.2): the state machine definitions,
+// every workspace's default life areas, and a demo goal + Kanban project on the
+// first personal workspace. Safe to run multiple times.
 async function main() {
+  // Data-driven state machines (roadmap 3.2): upsert by key so re-runs refresh
+  // the definitions without duplicating rows.
+  for (const def of SEED_MACHINES) {
+    const stored = toStoredMachine(def);
+    await prisma.stateMachine.upsert({
+      where: { key: stored.key },
+      create: {
+        key: stored.key,
+        states: stored.states as Prisma.InputJsonValue,
+        transitions: stored.transitions as unknown as Prisma.InputJsonValue,
+      },
+      update: {
+        states: stored.states as Prisma.InputJsonValue,
+        transitions: stored.transitions as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+  console.log(`Seed: upserted ${SEED_MACHINES.length} state machines.`);
+
   const workspaces = await prisma.workspace.findMany({
     include: { _count: { select: { areas: true } } },
   });

@@ -88,6 +88,39 @@ enum ProjectRoleType {
   @@map("project_role_type")
 }
 
+enum HabitStatus {
+  detected
+  analysis
+  correction
+  verification
+  overcome
+
+  @@map("habit_status")
+}
+
+enum HabitSeverity {
+  low
+  medium
+  high
+
+  @@map("habit_severity")
+}
+
+enum CheckinResult {
+  done
+  occurrence
+  skipped
+
+  @@map("checkin_result")
+}
+
+enum InvariantStatus {
+  holding
+  violated
+
+  @@map("invariant_status")
+}
+
 model Workspace {
   id        String        @id @default(uuid()) @db.Uuid
   name      String
@@ -103,6 +136,8 @@ model Workspace {
   projects    Project[]
   tasks       Task[]
   invitations WorkspaceInvitation[]
+  habits      Habit[]
+  invariants  Invariant[]
 
   @@map("workspaces")
 }
@@ -349,4 +384,127 @@ model ProjectRole {
   @@id([projectId, userId])
   @@index([userId])
   @@map("project_roles")
+}
+
+// Data-driven state machine definitions (RF6.5). A single engine in
+// domain/formal/machine.ts reads these rows to decide whether a transition is
+// valid; habit (M5) and feature (M4) flows are seeded here, never hardcoded.
+model StateMachine {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  // { initial: string, states: string[] }
+  states      Json     @db.JsonB
+  // Array of { from, to, event }
+  transitions Json     @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("state_machines")
+}
+
+// A default habit under correction (M5, RF5.1). Its lifecycle is driven by the
+// `habit` state machine; the verification rule is fixed for the whole version
+// (RF5.5) — renegotiating it opens a new version.
+model Habit {
+  id               String        @id @default(uuid()) @db.Uuid
+  workspaceId      String        @map("workspace_id") @db.Uuid
+  // References auth.users(id); no FK because the auth schema is managed by Supabase.
+  ownerId          String        @map("owner_id") @db.Uuid
+  name             String
+  triggerText      String?       @map("trigger_text")
+  severity         HabitSeverity @default(medium)
+  status           HabitStatus   @default(detected)
+  version          Int           @default(1)
+  // Baseline phase length in days before moving to correction (RF5.3).
+  analysisDays     Int           @default(7) @map("analysis_days")
+  // { condition: "done", windowDays: number, tolerance: number } — immutable
+  // during the cycle (RF5.5).
+  verificationRule Json          @map("verification_rule") @db.JsonB
+  // Optional team witness who validates check-ins (RF5.4). References auth.users(id).
+  witnessId        String?       @map("witness_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  checkins    HabitCheckin[]
+  transitions HabitTransition[]
+
+  @@index([workspaceId])
+  @@map("habits")
+}
+
+// Event table: one immutable check-in per habit per day (RF5.4/5.7). A witness
+// may later set `validatedBy` (the single set-once field); the result is fixed.
+model HabitCheckin {
+  id          String        @id @default(uuid()) @db.Uuid
+  habitId     String        @map("habit_id") @db.Uuid
+  date        DateTime      @db.Date
+  result      CheckinResult
+  note        String?
+  // The witness (auth.users id) who validated this check-in, if any.
+  validatedBy String?       @map("validated_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId])
+  @@map("habit_checkins")
+}
+
+// Event table: INSERT-only lifecycle log of a habit (RF5.2/5.6/5.7). A relapse
+// is just a verification -> correction row; history is never deleted.
+model HabitTransition {
+  id         String       @id @default(uuid()) @db.Uuid
+  habitId    String       @map("habit_id") @db.Uuid
+  fromStatus HabitStatus? @map("from_status")
+  toStatus   HabitStatus  @map("to_status")
+  reason     String?
+  actorId    String       @map("actor_id") @db.Uuid
+  at         DateTime     @default(now()) @db.Timestamptz(6)
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@index([habitId])
+  @@index([at])
+  @@map("habit_transitions")
+}
+
+// A declarative invariant over the workspace's data (RF6.2). The `rule` is a
+// small JSON DSL evaluated by domain/formal/invariant.ts on relevant events.
+model Invariant {
+  id          String          @id @default(uuid()) @db.Uuid
+  workspaceId String          @map("workspace_id") @db.Uuid
+  // Optional owner (personal invariant); null means workspace-wide. auth.users id.
+  ownerId     String?         @map("owner_id") @db.Uuid
+  name        String
+  // { type, ... } — see domain/formal/invariant.ts
+  rule        Json            @db.JsonB
+  status      InvariantStatus @default(holding)
+  enabled     Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace  Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  violations InvariantViolation[]
+
+  @@index([workspaceId])
+  @@map("invariants")
+}
+
+// Event table: one immutable row per invariant violation (RF6.4), carrying the
+// event that caused it and enough detail to explain the breach.
+model InvariantViolation {
+  id          String   @id @default(uuid()) @db.Uuid
+  invariantId String   @map("invariant_id") @db.Uuid
+  // Event name that triggered evaluation (e.g. "task_moved", "day_closed").
+  triggeredBy String   @map("triggered_by_event")
+  details     Json     @db.JsonB
+  at          DateTime @default(now()) @db.Timestamptz(6)
+
+  invariant Invariant @relation(fields: [invariantId], references: [id], onDelete: Cascade)
+
+  @@index([invariantId])
+  @@index([at])
+  @@map("invariant_violations")
 }
