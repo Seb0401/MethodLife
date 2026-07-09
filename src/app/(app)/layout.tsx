@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/inbox", label: es.nav.inbox },
   { href: "/buscar", label: es.nav.buscar },
   { href: "/areas", label: es.nav.areas },
+  { href: "/trazabilidad", label: es.nav.trazabilidad },
   { href: "/proyectos", label: es.nav.proyectos },
   { href: "/habitos", label: es.nav.habitos },
   { href: "/rutinas", label: es.nav.rutinas },
