@@ -222,6 +222,15 @@ export const es = {
       done: "Hecho",
     },
   },
+  activity: {
+    title: "Actividad",
+    empty: "Sin actividad todavía.",
+    created: "creó",
+    completed: "completó",
+    movedTo: "movió a",
+    unknownColumn: "otra columna",
+    someone: "Alguien",
+  },
   kanban: {
     wipLabel: "WIP",
     wipNone: "Sin límite",
