@@ -12,7 +12,16 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"],
+    ignores: [
+      "node_modules/**",
+      ".next/**",
+      "out/**",
+      "build/**",
+      "next-env.d.ts",
+      // Playwright output (generated).
+      "test-results/**",
+      "playwright-report/**",
+    ],
   },
   {
     // Playwright config and E2E tests must be CommonJS: Playwright 1.61 needs

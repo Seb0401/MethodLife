@@ -19,7 +19,9 @@ module.exports = defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // Retry once even locally: the app talks to a remote Supabase over the network,
+  // so an occasional socket timeout shouldn't fail the whole run.
+  retries: 1,
   reporter: process.env.CI ? "list" : [["list"], ["html", { open: "never" }]],
   timeout: 120_000,
   expect: { timeout: 20_000 },
