@@ -5,13 +5,31 @@ import {
   coupledProjectIds,
   type ProjectSlot,
 } from "@/domain/planning/coupling";
+import Link from "next/link";
 import { DependencyMap, type MapNode, type MapEdge } from "@/components/planning/dependency-map";
+import { FlowEditor, type StoredGraph } from "@/components/planning/flow-editor";
+import { createFlow, deleteFlow } from "@/actions/flows";
+import { SubmitButton, TextInput } from "@/components/ui/form";
 import { es } from "@/lib/i18n/es";
 
-export default async function MapPage() {
+// Coerces the stored JSON into the editor's graph shape, defaulting to empty.
+function toGraph(raw: unknown): StoredGraph {
+  const g = raw as Partial<StoredGraph> | null;
+  return {
+    nodes: Array.isArray(g?.nodes) ? g!.nodes : [],
+    edges: Array.isArray(g?.edges) ? g!.edges : [],
+  };
+}
+
+export default async function MapPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ flow?: string }>;
+}) {
+  const { flow: selectedFlowId } = await searchParams;
   const ctx = await getWorkspaceContext();
 
-  const [goals, projects, links] = await Promise.all([
+  const [goals, projects, links, flows] = await Promise.all([
     prisma.goal.findMany({
       where: { workspaceId: ctx.workspace.id },
       orderBy: { createdAt: "asc" },
@@ -33,7 +51,14 @@ export default async function MapPage() {
       where: { fromGoal: { workspaceId: ctx.workspace.id } },
       select: { id: true, fromGoalId: true, toGoalId: true, type: true },
     }),
+    prisma.flowDiagram.findMany({
+      where: { workspaceId: ctx.workspace.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, graph: true },
+    }),
   ]);
+
+  const selectedFlow = flows.find((f) => f.id === selectedFlowId) ?? null;
 
   const slots: ProjectSlot[] = projects.map((p) => ({
     id: p.id,
@@ -117,6 +142,58 @@ export default async function MapPage() {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* Personal flow editor (RF10.3/10.4) */}
+      <section className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+        <h2 className="text-lg font-semibold">{es.map.flowTitle}</h2>
+        <p className="text-xs text-neutral-500">{es.map.flowSubtitle}</p>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <form action={createFlow} className="flex items-center gap-2">
+            <TextInput name="name" placeholder={es.map.flowName} required maxLength={120} />
+            <SubmitButton variant="subtle">{es.map.createFlow}</SubmitButton>
+          </form>
+          {flows.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-sm">
+              {flows.map((f) => (
+                <Link
+                  key={f.id}
+                  href={`/mapa?flow=${f.id}`}
+                  className={`rounded-md border px-2 py-1 ${
+                    f.id === selectedFlowId
+                      ? "border-neutral-900 dark:border-white"
+                      : "border-neutral-300 dark:border-neutral-700"
+                  }`}
+                >
+                  {f.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {flows.length === 0 && <p className="text-sm text-neutral-500">{es.map.noFlows}</p>}
+
+        {selectedFlow && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium">{selectedFlow.name}</h3>
+              <form action={deleteFlow} className="ml-auto">
+                <input type="hidden" name="id" value={selectedFlow.id} />
+                <button type="submit" className="text-xs text-neutral-400 hover:text-red-600">
+                  {es.map.deleteFlow}
+                </button>
+              </form>
+            </div>
+            <FlowEditor
+              key={selectedFlow.id}
+              id={selectedFlow.id}
+              name={selectedFlow.name}
+              initial={toGraph(selectedFlow.graph)}
+            />
+          </div>
         )}
       </section>
     </div>

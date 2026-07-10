@@ -692,6 +692,8 @@ export const es = {
     ROUTINE_VERSION_CLOSED: "Esta versión está cerrada: no admite cambios.",
     ROUTINE_JUSTIFICATION_REQUIRED: "La decisión necesita una justificación.",
     EVALUATION_INVALID: "Revisa el resultado y la fecha de la evaluación.",
+    FLOW_NAME_REQUIRED: "El flujo necesita un nombre.",
+    FLOW_INVALID_GRAPH: "El diagrama no se pudo guardar.",
     NOT_FOUND: "No se encontró el recurso.",
     GENERIC: "Algo salió mal. Intenta de nuevo.",
   },
