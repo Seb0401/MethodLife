@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createProject, deleteProject } from "@/actions/projects";
 import { FormError, Select, SubmitButton, TextInput, TextArea } from "@/components/ui/form";
 import { actionErrorMessage } from "@/lib/forms";
-import { PROJECT_METHODS, isMethodActive } from "@/domain/projects/method";
+import { MethodSelector } from "@/components/selector/method-selector";
 import { es } from "@/lib/i18n/es";
 
 export default async function ProjectsPage({
@@ -72,18 +72,8 @@ export default async function ProjectsPage({
                 ))}
               </Select>
             </label>
-            <label className="flex flex-1 flex-col gap-1 text-sm">
-              {es.projects.method}
-              <Select name="method" defaultValue="kanban">
-                {PROJECT_METHODS.map((m) => (
-                  <option key={m} value={m} disabled={!isMethodActive(m)}>
-                    {es.projects.methods[m]}
-                    {isMethodActive(m) ? "" : ` ${es.projects.methodSoon}`}
-                  </option>
-                ))}
-              </Select>
-            </label>
           </div>
+          <MethodSelector />
           <TextArea name="description" placeholder={es.projects.description} rows={2} />
           <SubmitButton className="self-start">{es.projects.create}</SubmitButton>
         </form>

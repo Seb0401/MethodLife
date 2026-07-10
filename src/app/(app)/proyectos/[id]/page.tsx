@@ -9,6 +9,7 @@ import { SprintsPanel } from "@/components/scrum/sprints-panel";
 import { SprintBoard } from "@/components/scrum/sprint-board";
 import { ProjectRolesPanel } from "@/components/scrum/project-roles-panel";
 import { FddMode } from "@/components/fdd/fdd-mode";
+import { MethodHistory } from "@/components/selector/method-history";
 import { ActivityFeed } from "@/components/projects/activity-feed";
 import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/actions/tasks";
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
@@ -129,6 +130,8 @@ export default async function ProjectPage({
       )}
 
       {metrics && <MetricsPanel metrics={metrics} projectId={project.id} />}
+
+      <MethodHistory projectId={project.id} currentMethod={project.method} />
 
       {(project.method === "kanban" || project.method === "scrum") && (
         <ActivityFeed projectId={project.id} />
