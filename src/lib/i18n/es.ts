@@ -644,6 +644,7 @@ export const es = {
     analysisLeft: "Faltan {n} días de análisis",
     analysisDone: "Análisis completo",
     checkinTitle: "Check-in de hoy",
+    checkinDate: "Fecha del check-in (por defecto hoy)",
     results: { done: "Cumplido", occurrence: "Ocurrencia", skipped: "Omitido" },
     note: "Nota (opcional)",
     checkin: "Registrar",

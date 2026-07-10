@@ -107,6 +107,13 @@ export function HabitCard({
           <input type="hidden" name="id" value={habit.id} />
           <span className="text-sm font-medium">{es.habits.checkinTitle}:</span>
           <input
+            type="date"
+            name="date"
+            aria-label={es.habits.checkinDate}
+            max={today.toISOString().slice(0, 10)}
+            className="rounded-md border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <input
             name="note"
             placeholder={es.habits.note}
             maxLength={200}
