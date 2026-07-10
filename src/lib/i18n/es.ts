@@ -361,6 +361,62 @@ export const es = {
       closed: "Cerrado",
     },
   },
+  insights: {
+    title: "Insights",
+    subtitle: "Inferencias sobre tus propios datos, con el detalle que las disparó.",
+    empty: "Sin insights por ahora. Sigue trabajando y vuelve luego.",
+    source: "Datos que lo dispararon",
+    rules: {
+      high_wip: {
+        title: "Demasiado trabajo en progreso",
+        explain: "{wip} tareas en progreso (sugerido ≤ {limit}).",
+      },
+      invariant_violations: {
+        title: "Invariantes rompiéndose",
+        explain: "{count} violaciones de invariantes en los últimos 7 días.",
+      },
+      overdue_pileup: {
+        title: "Tareas vencidas acumuladas",
+        explain: "{count} tareas vencidas sin completar.",
+      },
+      dead_goals: {
+        title: "Metas sin trabajo",
+        explain: "{count} metas activas sin ninguna tarea activa.",
+      },
+      orphan_work: {
+        title: "Trabajo sin meta",
+        explain: "{count} tareas sin meta asignada.",
+      },
+      temporal_coupling: {
+        title: "Áreas con proyectos acoplados",
+        explain: "{areas} área(s) con varios proyectos activos compitiendo por tu tiempo.",
+      },
+      too_many_active_projects: {
+        title: "Demasiados proyectos activos",
+        explain: "{count} proyectos activos (sugerido ≤ {limit}).",
+      },
+      busy_today: {
+        title: "Día cargado",
+        explain: "{count} tareas comprometidas para hoy.",
+      },
+      habits_in_verification: {
+        title: "Hábitos en verificación",
+        explain: "{count} hábito(s) a punto de superarse. ¡Sigue así!",
+      },
+      all_invariants_holding: {
+        title: "Todo en orden",
+        explain: "Tus {count} invariantes activas se están cumpliendo.",
+      },
+    },
+    inconsistenciesTitle: "Inconsistencias del modelo",
+    inconsistenciesHint: "Cosas que no cuadran en tu propia configuración.",
+    noInconsistencies: "Sin inconsistencias. Tu modelo está sano.",
+    inconsistency: {
+      goal_no_area: "{count} meta(s) sin área asignada.",
+      invariant_broken_ref: "La invariante «{name}» referencia datos que ya no existen.",
+      routine_no_requirements: "La rutina «{name}» no tiene requisitos definidos.",
+    },
+  },
   map: {
     title: "Mapa de dependencias",
     subtitle: "Metas y proyectos, sus relaciones y los proyectos que compiten por tu tiempo.",

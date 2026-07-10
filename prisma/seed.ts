@@ -94,6 +94,21 @@ async function main() {
     }
   }
 
+  // Demo invariant so the insights catalog has something to fire on (roadmap 5.7
+  // acceptance): a holding WIP ceiling triggers the "all_invariants_holding" insight.
+  const invariantCount = await prisma.invariant.count({ where: { workspaceId: primary.id } });
+  if (invariantCount === 0) {
+    await prisma.invariant.create({
+      data: {
+        workspaceId: primary.id,
+        ownerId: primary.ownerId,
+        name: "WIP total ≤ 3",
+        rule: { type: "wip_max", max: 3 },
+      },
+    });
+    console.log(`Seed: created demo invariant on "${primary.name}".`);
+  }
+
   console.log("Seed: done.");
 }
 
