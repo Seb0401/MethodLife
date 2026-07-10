@@ -11,16 +11,23 @@ function backWithError(path: "/login" | "/register", message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
 }
 
-export async function signIn(formData: FormData) {
+export type AuthState = { error?: string; ok?: boolean };
+
+// Signs the user in and returns the outcome instead of redirecting. A Server
+// Action `redirect()` to a middleware-protected route is not followed by the
+// client-side action handler in Next 15 (the session cookie is set but the
+// navigation bounces back to /login). The client form does a full navigation to
+// /hoy on success, which carries the fresh cookie reliably.
+export async function signIn(_prev: AuthState | null, formData: FormData): Promise<AuthState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) backWithError("/login", parsed.error.issues[0].message);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) backWithError("/login", es.auth.errors.invalidCredentials);
+  if (error) return { error: es.auth.errors.invalidCredentials };
 
   await ensureUserSetup();
-  redirect("/");
+  return { ok: true };
 }
 
 export async function signUp(formData: FormData) {
@@ -42,7 +49,7 @@ export async function signUp(formData: FormData) {
   // Session present means email confirmation is disabled in Supabase.
   if (data.session) {
     await ensureUserSetup();
-    redirect("/");
+    redirect("/hoy");
   }
   redirect(`/login?message=${encodeURIComponent(es.auth.messages.checkEmail)}`);
 }

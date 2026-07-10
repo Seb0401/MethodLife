@@ -36,17 +36,20 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-  if (!user && !isPublic) {
+  // Any redirect we return must carry the cookies Supabase refreshed onto
+  // `response`; otherwise the just-set session is dropped and the next request
+  // bounces back to /login (breaks the post-login client-side navigation).
+  const redirectTo = (path: string) => {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+    url.pathname = path;
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirect.cookies.set(c.name, c.value));
+    return redirect;
+  };
 
-  if (user && (pathname === "/login" || pathname === "/register")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
+  if (!user && !isPublic) return redirectTo("/login");
+
+  if (user && (pathname === "/login" || pathname === "/register")) return redirectTo("/hoy");
 
   return response;
 }
