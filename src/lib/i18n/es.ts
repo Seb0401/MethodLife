@@ -221,6 +221,45 @@ export const es = {
     todaySection: "Para hoy",
     inboxLabel: "Bandeja de entrada",
     open: "Abrir",
+    greeting: "Hola",
+  },
+  onboarding: {
+    title: "Te damos la bienvenida a MethodLife",
+    subtitle:
+      "Organiza tu vida y tus proyectos con métodos de ingeniería de software, en un solo sistema. Aquí tienes por dónde empezar:",
+    startTitle: "Primeros pasos",
+    steps: {
+      inbox: {
+        title: "Captura ideas",
+        body: "Anota cualquier tarea sin decidir aún dónde va. La organizas después.",
+        cta: "Abrir bandeja",
+      },
+      areas: {
+        title: "Define áreas y metas",
+        body: "Divide tu vida en áreas (escuela, trabajo, salud) y fija metas medibles.",
+        cta: "Crear metas",
+      },
+      projects: {
+        title: "Crea un proyecto",
+        body: "Elige un método (Kanban, Scrum, FDD…) y lleva el trabajo a un tablero.",
+        cta: "Nuevo proyecto",
+      },
+      habits: {
+        title: "Construye hábitos",
+        body: "Registra check-ins diarios y observa crecer tu racha.",
+        cta: "Añadir hábito",
+      },
+      methods: {
+        title: "¿Qué método usar?",
+        body: "Compara los métodos disponibles y deja que el selector te recomiende uno.",
+        cta: "Explorar métodos",
+      },
+      insights: {
+        title: "Descubre insights",
+        body: "MethodLife detecta cuellos de botella e inconsistencias en tu sistema.",
+        cta: "Ver insights",
+      },
+    },
   },
   search: {
     title: "Buscar",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LogOut } from "lucide-react";
+import { Wordmark } from "@/components/brand/logo";
 import { prisma } from "@/lib/prisma";
 import { ensureUserSetup } from "@/lib/auth/ensure-user-setup";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
@@ -23,11 +24,8 @@ export default async function AppLayout({ children }: Readonly<{ children: React
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="sticky top-0 flex h-screen w-64 flex-col gap-6 overflow-y-auto border-r border-border bg-surface p-4">
-        <Link href="/hoy" className="flex items-center gap-2 px-3 pt-1">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-sm font-black text-accent-fg">
-            M
-          </span>
-          <span className="text-lg font-bold tracking-tight text-foreground">{es.app.name}</span>
+        <Link href="/hoy" className="px-3 pt-1">
+          <Wordmark />
         </Link>
 
         <SidebarNav />

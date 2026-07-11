@@ -10,7 +10,7 @@ export default async function RegisterPage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">{es.auth.register.title}</h2>
+      <h2 className="text-xl font-semibold text-foreground">{es.auth.register.title}</h2>
       <AuthMessages error={error} />
       <form action={signUp} className="flex flex-col gap-3">
         <Field label={es.auth.fields.displayName} name="displayName" type="text" />
@@ -18,9 +18,9 @@ export default async function RegisterPage({ searchParams }: Props) {
         <Field label={es.auth.fields.password} name="password" type="password" minLength={8} />
         <SubmitButton>{es.auth.register.submit}</SubmitButton>
       </form>
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-muted">
         {es.auth.register.hasAccount}{" "}
-        <Link href="/login" className="underline">
+        <Link href="/login" className="font-medium text-accent-hover hover:underline">
           {es.auth.register.loginLink}
         </Link>
       </p>

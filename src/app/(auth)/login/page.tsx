@@ -9,11 +9,11 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">{es.auth.login.title}</h2>
+      <h2 className="text-xl font-semibold text-foreground">{es.auth.login.title}</h2>
       <LoginForm message={message} />
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-muted">
         {es.auth.login.noAccount}{" "}
-        <Link href="/register" className="underline">
+        <Link href="/register" className="font-medium text-accent-hover hover:underline">
           {es.auth.login.registerLink}
         </Link>
       </p>
