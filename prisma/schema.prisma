@@ -778,3 +778,22 @@ model Insight {
   @@index([workspaceId])
   @@map("insights")
 }
+
+// --- Gamification bridge (M-RPG) -----------------------------------------
+
+// Immutable XP ledger (roadmap Fase 6.2). Written server-side only (design rule
+// 1: the server is the authority) and consumed by the separate RPG app over the
+// same database. `source_type`/`source_id` point back to the already-recorded
+// system event that earned the XP (e.g. a task transition or habit check-in), so
+// every award is auditable. No FK on user_id: the auth schema is Supabase-managed.
+model XpEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  sourceType String   @map("source_type")
+  sourceId   String?  @map("source_id") @db.Uuid
+  amount     Int
+  at         DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([userId, at])
+  @@map("xp_events")
+}
