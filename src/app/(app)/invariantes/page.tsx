@@ -1,9 +1,13 @@
+import { ShieldCheck } from "lucide-react";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { toggleInvariant, deleteInvariant } from "@/actions/invariants";
 import { parseRule, type InvariantRule } from "@/domain/formal/invariant";
 import { InvariantForm } from "@/components/invariants/invariant-form";
 import { FormError } from "@/components/ui/form";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { actionErrorMessage } from "@/lib/forms";
 import { es } from "@/lib/i18n/es";
 
@@ -51,18 +55,19 @@ export default async function InvariantsPage({
   const areaName = new Map(areas.map((a) => [a.id, a.name]));
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.invariants.title}</h1>
-        <p className="text-sm text-neutral-500">{es.invariants.subtitle}</p>
-      </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader
+        title={es.invariants.title}
+        subtitle={es.invariants.subtitle}
+        icon={<ShieldCheck className="size-5" />}
+      />
 
       <FormError message={actionErrorMessage(error)} />
 
       <InvariantForm areas={areas} />
 
       {invariants.length === 0 ? (
-        <p className="text-sm text-neutral-500">{es.invariants.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.invariants.empty}</Card>
       ) : (
         <div className="flex flex-col gap-4">
           {invariants.map((inv) => {
@@ -74,73 +79,61 @@ export default async function InvariantsPage({
             const violated = inv.status === "violated";
 
             return (
-              <section
-                key={inv.id}
-                className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
-              >
+              <Card key={inv.id} className="flex flex-col gap-3 p-4">
                 <header className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold">{inv.name}</h2>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      violated
-                        ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                        : "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
-                    }`}
-                  >
+                  <h2 className="text-lg font-semibold text-foreground">{inv.name}</h2>
+                  <Badge variant={violated ? "danger" : "success"}>
                     {violated ? es.invariants.statuses.violated : es.invariants.statuses.holding}
-                  </span>
-                  {!inv.enabled && (
-                    <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                      {es.invariants.disabled}
-                    </span>
-                  )}
+                  </Badge>
+                  {!inv.enabled && <Badge>{es.invariants.disabled}</Badge>}
                   <div className="ml-auto flex items-center gap-3 text-xs">
                     <form action={toggleInvariant}>
                       <input type="hidden" name="id" value={inv.id} />
                       <button
                         type="submit"
-                        className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+                        className="text-muted transition-colors hover:text-foreground"
                       >
                         {inv.enabled ? es.invariants.disable : es.invariants.enable}
                       </button>
                     </form>
                     <form action={deleteInvariant}>
                       <input type="hidden" name="id" value={inv.id} />
-                      <button type="submit" className="text-neutral-400 hover:text-red-600">
+                      <button
+                        type="submit"
+                        className="text-faint transition-colors hover:text-red-400"
+                      >
                         {es.invariants.delete}
                       </button>
                     </form>
                   </div>
                 </header>
 
-                <p className="text-sm text-neutral-500">
+                <p className="text-sm text-muted">
                   {rule ? summarize(rule, area) : es.actionErrors.INVARIANT_INVALID_RULE}
                 </p>
 
-                <div className="border-t border-neutral-100 pt-2 text-sm dark:border-neutral-800">
-                  <p className="font-medium">
+                <div className="border-t border-border pt-2 text-sm">
+                  <p className="font-medium text-foreground">
                     {es.invariants.violationsTitle}{" "}
-                    <span className="text-neutral-400">({inv.violations.length})</span>
+                    <span className="text-faint">({inv.violations.length})</span>
                   </p>
                   {inv.violations.length === 0 ? (
-                    <p className="text-neutral-500">{es.invariants.noViolations}</p>
+                    <p className="text-muted">{es.invariants.noViolations}</p>
                   ) : (
                     <ul className="mt-1 flex flex-col gap-1">
                       {recent.slice(0, 5).map((v) => {
                         const d = (v.details ?? {}) as Record<string, unknown>;
                         return (
                           <li key={v.id} className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="text-neutral-500">{dateFmt.format(v.at)}</span>
-                            <span>
+                            <span className="text-muted">{dateFmt.format(v.at)}</span>
+                            <span className="text-foreground">
                               {es.invariants.violationLine
                                 .replace("{actual}", num(d.actual))
                                 .replace("{limit}", num(d.limit))
                                 .replace("{event}", v.triggeredBy)}
                             </span>
                             {first && v.id === first.id && (
-                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                                {es.invariants.firstViolation}
-                              </span>
+                              <Badge variant="warning">{es.invariants.firstViolation}</Badge>
                             )}
                           </li>
                         );
@@ -148,7 +141,7 @@ export default async function InvariantsPage({
                     </ul>
                   )}
                 </div>
-              </section>
+              </Card>
             );
           })}
         </div>

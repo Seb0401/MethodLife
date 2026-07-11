@@ -1,13 +1,16 @@
 import Link from "next/link";
+import { Search, ArrowUpRight } from "lucide-react";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { matchesFilter, type FilterableTask, type TaskFilter } from "@/domain/tasks/filter";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 import { es } from "@/lib/i18n/es";
 
 const priorityStyles = {
-  low: "text-neutral-400",
-  medium: "text-amber-500",
-  high: "text-red-500",
+  low: "text-faint",
+  medium: "text-amber-400",
+  high: "text-red-400",
 } as const;
 
 const STATUSES = ["todo", "in_progress", "done"] as const;
@@ -69,99 +72,102 @@ export default async function BuscarPage({
   const results = withArea.filter(({ filterable }) => matchesFilter(filterable, filter));
 
   const selectClass =
-    "rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900";
+    "rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-foreground outline-none focus:border-accent";
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.search.title}</h1>
-        <p className="text-sm text-neutral-500">{es.search.subtitle}</p>
-      </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader
+        title={es.search.title}
+        subtitle={es.search.subtitle}
+        icon={<Search className="size-5" />}
+      />
 
-      <form
-        method="get"
-        className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
-      >
-        <input
-          type="search"
-          name="q"
-          defaultValue={sp.q ?? ""}
-          placeholder={es.search.textPlaceholder}
-          className="rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-        />
-        <div className="flex flex-wrap gap-2">
-          <select name="area" defaultValue={sp.area ?? ""} className={selectClass}>
-            <option value="">{es.search.anyArea}</option>
-            {areas.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.icon ? `${a.icon} ` : ""}
-                {a.name}
-              </option>
-            ))}
-          </select>
-          <select name="status" defaultValue={sp.status ?? ""} className={selectClass}>
-            <option value="">{es.search.anyStatus}</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {es.search.statuses[s]}
-              </option>
-            ))}
-          </select>
-          <select name="priority" defaultValue={sp.priority ?? ""} className={selectClass}>
-            <option value="">{es.search.anyPriority}</option>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {es.tasks.priorities[p]}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-neutral-900"
-          >
-            {es.search.apply}
-          </button>
-          <Link
-            href="/buscar"
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-700"
-          >
-            {es.search.clear}
-          </Link>
-        </div>
-      </form>
+      <Card>
+        <form method="get" className="flex flex-col gap-3 p-4">
+          <input
+            type="search"
+            name="q"
+            defaultValue={sp.q ?? ""}
+            placeholder={es.search.textPlaceholder}
+            className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/40"
+          />
+          <div className="flex flex-wrap gap-2">
+            <select name="area" defaultValue={sp.area ?? ""} className={selectClass}>
+              <option value="">{es.search.anyArea}</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.icon ? `${a.icon} ` : ""}
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            <select name="status" defaultValue={sp.status ?? ""} className={selectClass}>
+              <option value="">{es.search.anyStatus}</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {es.search.statuses[s]}
+                </option>
+              ))}
+            </select>
+            <select name="priority" defaultValue={sp.priority ?? ""} className={selectClass}>
+              <option value="">{es.search.anyPriority}</option>
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>
+                  {es.tasks.priorities[p]}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+            >
+              {es.search.apply}
+            </button>
+            <Link
+              href="/buscar"
+              className="rounded-md border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:bg-elevated hover:text-foreground"
+            >
+              {es.search.clear}
+            </Link>
+          </div>
+        </form>
+      </Card>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-faint">
           {es.search.results} · {results.length}
         </h2>
         {results.length === 0 ? (
-          <p className="text-sm text-neutral-500">{es.search.empty}</p>
+          <Card className="p-8 text-center text-sm text-muted">{es.search.empty}</Card>
         ) : (
-          <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-            {results.map(({ task }) => (
-              <li key={task.id} className="flex items-center gap-3 py-2 text-sm">
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate">
-                    <span className={`mr-1 ${priorityStyles[task.priority]}`}>●</span>
-                    {task.title}
-                  </span>
-                  <span className="truncate text-xs text-neutral-500">
-                    {task.project?.name ?? task.goal?.title ?? es.today.inboxLabel}
-                    {" · "}
-                    {es.search.statuses[task.status]}
-                  </span>
-                </div>
-                {task.project && (
-                  <Link
-                    href={`/proyectos/${task.project.id}`}
-                    className="text-xs text-neutral-500 hover:underline"
-                  >
-                    {es.today.open}
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
+          <Card>
+            <ul className="flex flex-col divide-y divide-border">
+              {results.map(({ task }) => (
+                <li key={task.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-foreground">
+                      <span className={`mr-1.5 ${priorityStyles[task.priority]}`}>●</span>
+                      {task.title}
+                    </span>
+                    <span className="truncate text-xs text-muted">
+                      {task.project?.name ?? task.goal?.title ?? es.today.inboxLabel}
+                      {" · "}
+                      {es.search.statuses[task.status]}
+                    </span>
+                  </div>
+                  {task.project && (
+                    <Link
+                      href={`/proyectos/${task.project.id}`}
+                      className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent-hover"
+                    >
+                      {es.today.open}
+                      <ArrowUpRight className="size-3" />
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
       </section>
     </div>

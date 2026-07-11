@@ -1,7 +1,10 @@
+import { Sparkles, AlertTriangle } from "lucide-react";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { gatherInsightData } from "@/lib/insights/facts";
 import { evaluateInsights } from "@/domain/insights/catalog";
 import { detectInconsistencies } from "@/domain/insights/inconsistencies";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 import { es } from "@/lib/i18n/es";
 
 // Fills a template like "{wip} de {limit}" from the hit's data (RF11.2).
@@ -18,31 +21,36 @@ export default async function InsightsPage() {
   const rules = es.insights.rules;
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.insights.title}</h1>
-        <p className="text-sm text-neutral-500">{es.insights.subtitle}</p>
-      </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader
+        title={es.insights.title}
+        subtitle={es.insights.subtitle}
+        icon={<Sparkles className="size-5" />}
+      />
 
       {hits.length === 0 ? (
-        <p className="text-sm text-neutral-500">{es.insights.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.insights.empty}</Card>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {hits.map((hit) => {
             const copy = rules[hit.key as keyof typeof rules];
             const positive = hit.tone === "positive";
             return (
               <article
                 key={hit.key}
-                className={`flex flex-col gap-1 rounded-lg border p-4 ${
+                className={`flex flex-col gap-1 rounded-card border p-4 ${
                   positive
-                    ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40"
-                    : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"
+                    ? "border-emerald-900 bg-emerald-950/40"
+                    : "border-amber-900 bg-amber-950/40"
                 }`}
               >
-                <h2 className="text-sm font-semibold">{copy.title}</h2>
-                <p className="text-sm">{fill(copy.explain, hit.data)}</p>
-                <p className="text-xs text-neutral-500">
+                <h2
+                  className={`text-sm font-semibold ${positive ? "text-emerald-300" : "text-amber-300"}`}
+                >
+                  {copy.title}
+                </h2>
+                <p className="text-sm text-foreground">{fill(copy.explain, hit.data)}</p>
+                <p className="text-xs text-muted">
                   {es.insights.source}:{" "}
                   {Object.entries(hit.data)
                     .map(([k, v]) => `${k}=${v}`)
@@ -54,17 +62,19 @@ export default async function InsightsPage() {
         </div>
       )}
 
-      <section className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="text-lg font-semibold">{es.insights.inconsistenciesTitle}</h2>
-        <p className="text-xs text-neutral-500">{es.insights.inconsistenciesHint}</p>
+      <Card className="flex flex-col gap-2 p-4">
+        <h2 className="text-lg font-semibold text-foreground">
+          {es.insights.inconsistenciesTitle}
+        </h2>
+        <p className="text-xs text-muted">{es.insights.inconsistenciesHint}</p>
         {issues.length === 0 ? (
-          <p className="text-sm text-neutral-500">{es.insights.noInconsistencies}</p>
+          <p className="text-sm text-muted">{es.insights.noInconsistencies}</p>
         ) : (
-          <ul className="flex flex-col gap-1 text-sm">
+          <ul className="flex flex-col gap-1.5 text-sm">
             {issues.map((issue, i) => (
               <li key={i} className="flex items-center gap-2">
-                <span className="text-red-500">⚠</span>
-                <span>
+                <AlertTriangle className="size-3.5 shrink-0 text-amber-400" />
+                <span className="text-foreground">
                   {issue.kind === "goal_no_area"
                     ? fill(es.insights.inconsistency.goal_no_area, { count: issue.count })
                     : issue.kind === "invariant_broken_ref"
@@ -77,7 +87,7 @@ export default async function InsightsPage() {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

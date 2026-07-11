@@ -6,10 +6,14 @@ import {
   type ProjectSlot,
 } from "@/domain/planning/coupling";
 import Link from "next/link";
+import { Network } from "lucide-react";
 import { DependencyMap, type MapNode, type MapEdge } from "@/components/planning/dependency-map";
 import { FlowEditor, type StoredGraph } from "@/components/planning/flow-editor";
 import { createFlow, deleteFlow } from "@/actions/flows";
 import { SubmitButton, TextInput } from "@/components/ui/form";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/cn";
 import { es } from "@/lib/i18n/es";
 
 // Coerces the stored JSON into the editor's graph shape, defaulting to empty.
@@ -103,52 +107,53 @@ export default async function MapPage({
   const hasGraph = nodes.length > 0;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.map.title}</h1>
-        <p className="text-sm text-neutral-500">{es.map.subtitle}</p>
-      </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader
+        title={es.map.title}
+        subtitle={es.map.subtitle}
+        icon={<Network className="size-5" />}
+      />
 
       {!hasGraph ? (
-        <p className="text-sm text-neutral-500">{es.map.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.map.empty}</Card>
       ) : (
         <>
-          <div className="flex flex-wrap gap-4 text-xs text-neutral-500">
+          <div className="flex flex-wrap gap-4 text-xs text-muted">
             <span>🟦 {es.map.legendGoal}</span>
             <span>⬜ {es.map.legendProject}</span>
-            <span className="text-red-500">▢ {es.map.legendCoupled}</span>
+            <span className="text-red-400">▢ {es.map.legendCoupled}</span>
           </div>
           <DependencyMap nodes={nodes} edges={edges} />
         </>
       )}
 
-      <section className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="text-lg font-semibold">{es.map.couplingTitle}</h2>
-        <p className="text-xs text-neutral-500">{es.map.couplingHint}</p>
+      <Card className="flex flex-col gap-2 p-4">
+        <h2 className="text-lg font-semibold text-foreground">{es.map.couplingTitle}</h2>
+        <p className="text-xs text-muted">{es.map.couplingHint}</p>
         {coupling.length === 0 ? (
-          <p className="text-sm text-neutral-500">{es.map.noCoupling}</p>
+          <p className="text-sm text-muted">{es.map.noCoupling}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {coupling.map((g) => (
               <li
                 key={g.areaId}
-                className="rounded-md border border-red-200 bg-red-50 p-2 text-sm dark:border-red-900 dark:bg-red-950/40"
+                className="rounded-lg border border-red-900 bg-red-950/40 p-2 text-sm"
               >
-                <span className="font-medium">{g.areaName}</span>:{" "}
-                {g.projects.map((p) => p.name).join(", ")}
-                <span className="mt-0.5 block text-xs text-red-600">
+                <span className="font-medium text-foreground">{g.areaName}</span>:{" "}
+                <span className="text-muted">{g.projects.map((p) => p.name).join(", ")}</span>
+                <span className="mt-0.5 block text-xs text-red-400">
                   {es.map.couplingSuggestion}
                 </span>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
       {/* Personal flow editor (RF10.3/10.4) */}
-      <section className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="text-lg font-semibold">{es.map.flowTitle}</h2>
-        <p className="text-xs text-neutral-500">{es.map.flowSubtitle}</p>
+      <Card className="flex flex-col gap-3 p-4">
+        <h2 className="text-lg font-semibold text-foreground">{es.map.flowTitle}</h2>
+        <p className="text-xs text-muted">{es.map.flowSubtitle}</p>
 
         <div className="flex flex-wrap items-center gap-3">
           <form action={createFlow} className="flex items-center gap-2">
@@ -161,11 +166,12 @@ export default async function MapPage({
                 <Link
                   key={f.id}
                   href={`/mapa?flow=${f.id}`}
-                  className={`rounded-md border px-2 py-1 ${
+                  className={cn(
+                    "rounded-md border px-2 py-1 transition-colors",
                     f.id === selectedFlowId
-                      ? "border-neutral-900 dark:border-white"
-                      : "border-neutral-300 dark:border-neutral-700"
-                  }`}
+                      ? "border-accent bg-accent-subtle text-accent-hover"
+                      : "border-border text-muted hover:bg-elevated hover:text-foreground",
+                  )}
                 >
                   {f.name}
                 </Link>
@@ -174,15 +180,18 @@ export default async function MapPage({
           )}
         </div>
 
-        {flows.length === 0 && <p className="text-sm text-neutral-500">{es.map.noFlows}</p>}
+        {flows.length === 0 && <p className="text-sm text-muted">{es.map.noFlows}</p>}
 
         {selectedFlow && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <h3 className="font-medium">{selectedFlow.name}</h3>
+              <h3 className="font-medium text-foreground">{selectedFlow.name}</h3>
               <form action={deleteFlow} className="ml-auto">
                 <input type="hidden" name="id" value={selectedFlow.id} />
-                <button type="submit" className="text-xs text-neutral-400 hover:text-red-600">
+                <button
+                  type="submit"
+                  className="text-xs text-faint transition-colors hover:text-red-400"
+                >
                   {es.map.deleteFlow}
                 </button>
               </form>
@@ -195,7 +204,7 @@ export default async function MapPage({
             />
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

@@ -1,7 +1,10 @@
+import { Inbox, Trash2 } from "lucide-react";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { captureTask, processTask, deleteTask } from "@/actions/tasks";
 import { FormError, Select, SubmitButton, TextInput } from "@/components/ui/form";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 import { actionErrorMessage } from "@/lib/forms";
 import { es } from "@/lib/i18n/es";
 
@@ -33,11 +36,12 @@ export default async function InboxPage({
   const canProcess = projects.length > 0 || goals.length > 0;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.inbox.title}</h1>
-        <p className="text-sm text-neutral-500">{es.inbox.subtitle}</p>
-      </header>
+    <div className="flex w-full max-w-2xl flex-col gap-6">
+      <PageHeader
+        title={es.inbox.title}
+        subtitle={es.inbox.subtitle}
+        icon={<Inbox className="size-5" />}
+      />
 
       <FormError message={actionErrorMessage(error)} />
 
@@ -53,19 +57,30 @@ export default async function InboxPage({
       </form>
 
       {tasks.length === 0 ? (
-        <p className="text-sm text-neutral-500">{es.inbox.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.inbox.empty}</Card>
       ) : (
         <ul className="flex flex-col gap-3">
           {tasks.map((task) => (
-            <li
-              key={task.id}
-              className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
-            >
-              <span className="font-medium">{task.title}</span>
+            <Card key={task.id} className="flex flex-col gap-2 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-medium text-foreground">{task.title}</span>
+                <form action={deleteTask}>
+                  <input type="hidden" name="id" value={task.id} />
+                  <input type="hidden" name="redirectTo" value="/inbox" />
+                  <button
+                    type="submit"
+                    aria-label={es.inbox.delete}
+                    title={es.inbox.delete}
+                    className="flex size-7 items-center justify-center rounded-md text-faint transition-colors hover:bg-elevated hover:text-red-400"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </form>
+              </div>
               {canProcess ? (
                 <form action={processTask} className="flex flex-wrap items-end gap-2">
                   <input type="hidden" name="id" value={task.id} />
-                  <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-500">
+                  <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
                     {es.inbox.toProject}
                     <Select name="projectId" defaultValue="">
                       <option value="">—</option>
@@ -76,7 +91,7 @@ export default async function InboxPage({
                       ))}
                     </Select>
                   </label>
-                  <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-500">
+                  <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
                     {es.inbox.toGoal}
                     <Select name="goalId" defaultValue="">
                       <option value="">—</option>
@@ -90,19 +105,9 @@ export default async function InboxPage({
                   <SubmitButton variant="subtle">{es.inbox.process}</SubmitButton>
                 </form>
               ) : (
-                <p className="text-xs text-neutral-500">{es.inbox.noProjects}</p>
+                <p className="text-xs text-muted">{es.inbox.noProjects}</p>
               )}
-              <form action={deleteTask}>
-                <input type="hidden" name="id" value={task.id} />
-                <input type="hidden" name="redirectTo" value="/inbox" />
-                <button
-                  type="submit"
-                  className="self-start text-xs text-neutral-400 hover:text-red-600"
-                >
-                  {es.inbox.delete}
-                </button>
-              </form>
-            </li>
+            </Card>
           ))}
         </ul>
       )}

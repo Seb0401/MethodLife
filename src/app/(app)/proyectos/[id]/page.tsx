@@ -12,7 +12,10 @@ import { FddMode } from "@/components/fdd/fdd-mode";
 import { MethodHistory } from "@/components/selector/method-history";
 import { ActivityFeed } from "@/components/projects/activity-feed";
 import { addSimpleTask, toggleTaskDone, deleteTask, setTaskDueDate } from "@/actions/tasks";
+import { ArrowLeft } from "lucide-react";
 import { FormError, SubmitButton, TextInput, Select } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { actionErrorMessage } from "@/lib/forms";
 import { loadFlowMetrics } from "@/lib/kanban/flow";
 import { parseDod } from "@/domain/formal/dod";
@@ -63,17 +66,19 @@ export default async function ProjectPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-1">
-        <Link href="/proyectos" className="text-xs text-neutral-500 hover:underline">
+      <header className="flex flex-col gap-1.5">
+        <Link
+          href="/proyectos"
+          className="flex w-fit items-center gap-1 text-xs text-muted transition-colors hover:text-accent-hover"
+        >
+          <ArrowLeft className="size-3" />
           {es.projects.backToProjects}
         </Link>
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">{project.name}</h1>
-          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-            {es.projects.methods[project.method]}
-          </span>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{project.name}</h1>
+          <Badge variant="accent">{es.projects.methods[project.method]}</Badge>
         </div>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-muted">
           {project.area.name}
           {project.goal ? ` · ${project.goal.title}` : ""}
         </p>
@@ -110,7 +115,7 @@ export default async function ProjectPage({
             }))}
           />
         ) : (
-          <p className="text-sm text-neutral-500">{es.projects.noBoard}</p>
+          <p className="text-sm text-muted">{es.projects.noBoard}</p>
         )
       ) : project.method === "scrum" ? (
         <>
@@ -123,7 +128,7 @@ export default async function ProjectPage({
         project.goalId ? (
           <FddMode projectId={project.id} goalId={project.goalId} workspaceId={ctx.workspace.id} />
         ) : (
-          <p className="text-sm text-neutral-500">{es.fdd.needsGoal}</p>
+          <p className="text-sm text-muted">{es.fdd.needsGoal}</p>
         )
       ) : (
         <SimpleTaskList projectId={project.id} />
@@ -171,57 +176,68 @@ async function SimpleTaskList({ projectId }: { projectId: string }) {
       </form>
 
       {tasks.length === 0 ? (
-        <p className="text-sm text-neutral-500">{es.tasks.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.tasks.empty}</Card>
       ) : (
-        <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-          {tasks.map((task) => (
-            <li key={task.id} className="flex items-center gap-2 py-2 text-sm">
-              <form action={toggleTaskDone}>
-                <input type="hidden" name="id" value={task.id} />
-                <input type="hidden" name="redirectTo" value={back} />
-                <input
-                  type="hidden"
-                  name="done"
-                  value={task.status === "done" ? "false" : "true"}
-                />
-                <button
-                  type="submit"
-                  aria-label={task.title}
-                  className="text-neutral-400 hover:text-green-600"
+        <Card>
+          <ul className="flex flex-col divide-y divide-border">
+            {tasks.map((task) => (
+              <li key={task.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <form action={toggleTaskDone} className="flex">
+                  <input type="hidden" name="id" value={task.id} />
+                  <input type="hidden" name="redirectTo" value={back} />
+                  <input
+                    type="hidden"
+                    name="done"
+                    value={task.status === "done" ? "false" : "true"}
+                  />
+                  <button
+                    type="submit"
+                    aria-label={task.title}
+                    className={
+                      task.status === "done"
+                        ? "flex size-5 items-center justify-center rounded-full bg-emerald-500 text-xs text-white"
+                        : "flex size-5 items-center justify-center rounded-full border border-border-strong text-transparent transition-colors hover:border-emerald-500"
+                    }
+                  >
+                    ✓
+                  </button>
+                </form>
+                <span
+                  className={task.status === "done" ? "text-faint line-through" : "text-foreground"}
                 >
-                  {task.status === "done" ? "☑" : "☐"}
-                </button>
-              </form>
-              <span className={task.status === "done" ? "text-neutral-400 line-through" : ""}>
-                {task.title}
-              </span>
-              <form action={setTaskDueDate} className="ml-auto flex items-center gap-1">
-                <input type="hidden" name="id" value={task.id} />
-                <input type="hidden" name="redirectTo" value={back} />
-                <input
-                  type="date"
-                  name="dueDate"
-                  defaultValue={toDateInput(task.dueDate)}
-                  className="rounded-md border border-neutral-200 px-1 py-0.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900"
-                />
-                <button
-                  type="submit"
-                  className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-                  aria-label={es.tasks.setDue}
-                >
-                  ✓
-                </button>
-              </form>
-              <form action={deleteTask}>
-                <input type="hidden" name="id" value={task.id} />
-                <input type="hidden" name="redirectTo" value={back} />
-                <button type="submit" className="text-xs text-neutral-300 hover:text-red-600">
-                  ✕
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
+                  {task.title}
+                </span>
+                <form action={setTaskDueDate} className="ml-auto flex items-center gap-1">
+                  <input type="hidden" name="id" value={task.id} />
+                  <input type="hidden" name="redirectTo" value={back} />
+                  <input
+                    type="date"
+                    name="dueDate"
+                    defaultValue={toDateInput(task.dueDate)}
+                    className="rounded-md border border-border bg-surface px-1 py-0.5 text-xs text-muted"
+                  />
+                  <button
+                    type="submit"
+                    className="text-xs text-faint transition-colors hover:text-foreground"
+                    aria-label={es.tasks.setDue}
+                  >
+                    ✓
+                  </button>
+                </form>
+                <form action={deleteTask}>
+                  <input type="hidden" name="id" value={task.id} />
+                  <input type="hidden" name="redirectTo" value={back} />
+                  <button
+                    type="submit"
+                    className="text-xs text-faint transition-colors hover:text-red-400"
+                  >
+                    ✕
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </div>
   );

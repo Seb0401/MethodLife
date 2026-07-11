@@ -1,8 +1,11 @@
+import { Target } from "lucide-react";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { createArea } from "@/actions/areas";
 import { AreaCard } from "@/components/areas/area-card";
 import { FormError, SubmitButton, TextInput } from "@/components/ui/form";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 import { actionErrorMessage } from "@/lib/forms";
 import { es } from "@/lib/i18n/es";
 
@@ -20,11 +23,12 @@ export default async function AreasPage({
   });
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.areas.title}</h1>
-        <p className="text-sm text-neutral-500">{es.areas.subtitle}</p>
-      </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader
+        title={es.areas.title}
+        subtitle={es.areas.subtitle}
+        icon={<Target className="size-5" />}
+      />
 
       <FormError message={actionErrorMessage(error)} />
 
@@ -41,13 +45,13 @@ export default async function AreasPage({
           name="color"
           defaultValue="#64748b"
           aria-label={es.areas.color}
-          className="h-9 w-12 cursor-pointer rounded-md border border-neutral-300 dark:border-neutral-700"
+          className="h-9 w-12 cursor-pointer rounded-md border border-border bg-surface"
         />
         <SubmitButton>{es.areas.create}</SubmitButton>
       </form>
 
       {areas.length === 0 ? (
-        <p className="text-sm text-neutral-500">{es.areas.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.areas.empty}</Card>
       ) : (
         <div className="flex flex-col gap-4">
           {areas.map((area) => (
