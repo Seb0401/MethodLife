@@ -71,6 +71,7 @@ export const es = {
     },
   },
   nav: {
+    resumen: "Resumen",
     hoy: "Hoy",
     inbox: "Bandeja de entrada",
     buscar: "Buscar",
@@ -212,6 +213,56 @@ export const es = {
       allConfirmed: "Todo confirmado",
       preLabel: "Precondiciones",
       postLabel: "Postcondiciones",
+    },
+  },
+  dashboard: {
+    title: "Resumen",
+    subtitle: "Una vista de tu sistema completo: tareas, proyectos, metas, hábitos e invariantes.",
+    empty:
+      "Aún no hay datos. Empieza creando un proyecto o un hábito para ver tu resumen cobrar vida.",
+    stats: {
+      activeTasks: "Tareas activas",
+      doneTasks: "Completadas",
+      activeProjects: "Proyectos activos",
+      activeGoals: "Metas activas",
+      habits: "Hábitos",
+      invariants: "Invariantes",
+    },
+    hints: {
+      doneTasks: "En total, marcadas como hechas",
+      goalsDone: "{n} cumplidas",
+      invariantsOk: "Todas cumpliéndose",
+      invariantsViolated: "{n} en incumplimiento",
+      habitsTracked: "En seguimiento",
+    },
+    activity: {
+      title: "Actividad reciente",
+      subtitle: "Eventos de los últimos 14 días, tomados del registro inmutable.",
+      empty: "Sin actividad registrada todavía.",
+      checkins: "Check-ins de hábitos",
+      tasksDone: "Tareas completadas",
+    },
+    taskDist: {
+      title: "Distribución de tareas",
+      priority: "Prioridad de lo pendiente",
+      empty: "No tienes tareas activas.",
+    },
+    goals: {
+      title: "Metas",
+      progress: "{done} de {total} cumplidas",
+      upcomingTitle: "Próximas fechas límite",
+      noUpcoming: "Sin fechas límite próximas.",
+      none: "Aún no defines metas.",
+    },
+    habits: {
+      title: "Hábitos",
+      streak: "{n} días",
+      noStreak: "Sin racha",
+      none: "Aún no registras hábitos.",
+    },
+    projects: {
+      title: "Proyectos por método",
+      none: "No tienes proyectos activos.",
     },
   },
   today: {

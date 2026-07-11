@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  LayoutDashboard,
   CalendarDays,
   Inbox,
   Search,
@@ -30,6 +31,7 @@ type NavSection = { title?: string; items: NavItem[] };
 const SECTIONS: NavSection[] = [
   {
     items: [
+      { href: "/resumen", label: es.nav.resumen, icon: LayoutDashboard },
       { href: "/hoy", label: es.nav.hoy, icon: CalendarDays },
       { href: "/inbox", label: es.nav.inbox, icon: Inbox },
       { href: "/buscar", label: es.nav.buscar, icon: Search },
