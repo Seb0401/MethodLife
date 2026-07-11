@@ -1,14 +1,18 @@
 import Link from "next/link";
+import { CalendarDays, Check, X, ArrowUpRight } from "lucide-react";
 import { getWorkspaceContext } from "@/lib/workspace/get-workspace-context";
 import { prisma } from "@/lib/prisma";
 import { toggleTaskDone, setTaskDueDate } from "@/actions/tasks";
 import { isDueToday, isOverdue } from "@/domain/tasks/today";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { Card } from "@/components/ui/card";
 import { es } from "@/lib/i18n/es";
 
 const priorityStyles = {
-  low: "text-neutral-400",
-  medium: "text-amber-500",
-  high: "text-red-500",
+  low: "text-faint",
+  medium: "text-amber-400",
+  high: "text-red-400",
 } as const;
 
 function formatDate(date: Date): string {
@@ -36,21 +40,27 @@ export default async function HoyPage() {
   const today = dated.filter((t) => isDueToday(t.dueDate, now));
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.nav.hoy}</h1>
-        <p className="text-sm text-neutral-500">{es.today.subtitle}</p>
-      </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader
+        title={es.nav.hoy}
+        subtitle={es.today.subtitle}
+        icon={<CalendarDays className="size-5" />}
+      />
+
+      <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+        <StatCard label={es.today.overdueSection} value={overdue.length} tone="danger" />
+        <StatCard label={es.today.todaySection} value={today.length} tone="warning" />
+      </div>
 
       {overdue.length === 0 && today.length === 0 ? (
-        <p className="text-sm text-neutral-500">{es.today.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.today.empty}</Card>
       ) : (
-        <>
+        <div className="flex flex-col gap-6">
           {overdue.length > 0 && (
             <Section title={es.today.overdueSection} tasks={overdue} overdue />
           )}
           {today.length > 0 && <Section title={es.today.todaySection} tasks={today} />}
-        </>
+        </div>
       )}
     </div>
   );
@@ -76,58 +86,62 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{title}</h2>
-      <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-        {tasks.map((task) => (
-          <li key={task.id} className="flex items-center gap-3 py-2 text-sm">
-            <form action={toggleTaskDone}>
-              <input type="hidden" name="id" value={task.id} />
-              <input type="hidden" name="redirectTo" value="/hoy" />
-              <input type="hidden" name="done" value="true" />
-              <button
-                type="submit"
-                aria-label={task.title}
-                className="text-neutral-400 hover:text-green-600"
-              >
-                ☐
-              </button>
-            </form>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-faint">{title}</h2>
+      <Card>
+        <ul className="flex flex-col divide-y divide-border">
+          {tasks.map((task) => (
+            <li key={task.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+              <form action={toggleTaskDone} className="flex">
+                <input type="hidden" name="id" value={task.id} />
+                <input type="hidden" name="redirectTo" value="/hoy" />
+                <input type="hidden" name="done" value="true" />
+                <button
+                  type="submit"
+                  aria-label={task.title}
+                  className="group flex size-5 items-center justify-center rounded-full border border-border-strong text-transparent transition-colors hover:border-emerald-500 hover:bg-emerald-500 hover:text-white"
+                >
+                  <Check className="size-3" strokeWidth={3} />
+                </button>
+              </form>
 
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate">
-                <span className={`mr-1 ${priorityStyles[task.priority]}`}>●</span>
-                {task.title}
-              </span>
-              <span className="truncate text-xs text-neutral-500">
-                {task.project?.name ?? task.goal?.title ?? es.today.inboxLabel}
-                {task.dueDate ? ` · ${formatDate(task.dueDate)}` : ""}
-                {overdue && <span className="ml-1 text-red-600">· {es.tasks.overdue}</span>}
-              </span>
-            </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-foreground">
+                  <span className={`mr-1.5 ${priorityStyles[task.priority]}`}>●</span>
+                  {task.title}
+                </span>
+                <span className="truncate text-xs text-muted">
+                  {task.project?.name ?? task.goal?.title ?? es.today.inboxLabel}
+                  {task.dueDate ? ` · ${formatDate(task.dueDate)}` : ""}
+                  {overdue && <span className="ml-1 text-red-400">· {es.tasks.overdue}</span>}
+                </span>
+              </div>
 
-            {task.project && (
-              <Link
-                href={`/proyectos/${task.project.id}`}
-                className="text-xs text-neutral-500 hover:underline"
-              >
-                {es.today.open}
-              </Link>
-            )}
-            <form action={setTaskDueDate}>
-              <input type="hidden" name="id" value={task.id} />
-              <input type="hidden" name="redirectTo" value="/hoy" />
-              <input type="hidden" name="dueDate" value="" />
-              <button
-                type="submit"
-                className="text-xs text-neutral-300 hover:text-neutral-600"
-                aria-label={es.tasks.clearDue}
-              >
-                {es.tasks.clearDue}
-              </button>
-            </form>
-          </li>
-        ))}
-      </ul>
+              {task.project && (
+                <Link
+                  href={`/proyectos/${task.project.id}`}
+                  className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent-hover"
+                >
+                  {es.today.open}
+                  <ArrowUpRight className="size-3" />
+                </Link>
+              )}
+              <form action={setTaskDueDate} className="flex">
+                <input type="hidden" name="id" value={task.id} />
+                <input type="hidden" name="redirectTo" value="/hoy" />
+                <input type="hidden" name="dueDate" value="" />
+                <button
+                  type="submit"
+                  className="flex size-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-elevated hover:text-foreground"
+                  aria-label={es.tasks.clearDue}
+                  title={es.tasks.clearDue}
+                >
+                  <X className="size-3.5" />
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </section>
   );
 }

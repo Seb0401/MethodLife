@@ -84,6 +84,12 @@ export const es = {
     insights: "Insights",
     metodos: "Métodos",
     workspace: "Workspace",
+    sections: {
+      organize: "Organización",
+      constancy: "Constancia",
+      analyze: "Análisis",
+      account: "Cuenta",
+    },
   },
   modulePlaceholder: {
     title: "Módulo en construcción",

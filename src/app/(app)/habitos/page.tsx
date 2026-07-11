@@ -3,9 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { loadMachine } from "@/lib/formal/load-machine";
 import { HABIT_MACHINE_KEY } from "@/domain/formal/machines";
 import { nextTransitions } from "@/domain/formal/machine";
+import { Repeat } from "lucide-react";
 import { HabitForm } from "@/components/habits/habit-form";
 import { HabitCard } from "@/components/habits/habit-card";
 import { FormError } from "@/components/ui/form";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 import { actionErrorMessage } from "@/lib/forms";
 import { es } from "@/lib/i18n/es";
 
@@ -44,18 +47,19 @@ export default async function HabitsPage({
     .map((m) => ({ userId: m.userId, name: nameOf.get(m.userId) ?? m.userId }));
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">{es.habits.title}</h1>
-        <p className="text-sm text-neutral-500">{es.habits.subtitle}</p>
-      </header>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader
+        title={es.habits.title}
+        subtitle={es.habits.subtitle}
+        icon={<Repeat className="size-5" />}
+      />
 
       <FormError message={actionErrorMessage(error)} />
 
       <HabitForm witnesses={witnesses} />
 
       {habits.length === 0 ? (
-        <p className="text-sm text-neutral-500">{es.habits.empty}</p>
+        <Card className="p-8 text-center text-sm text-muted">{es.habits.empty}</Card>
       ) : (
         <div className="flex flex-col gap-4">
           {habits.map((habit) => (
